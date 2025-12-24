@@ -1,0 +1,104 @@
+.team-page {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.members-table-container {
+    background: #1e1e2d;
+    border-radius: 12px;
+    border: 1px solid #2d2d3f;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+
+.members-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #e0e0e0;
+}
+
+.members-table th {
+    background: #252535;
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #a0a0b0;
+}
+
+.members-table td {
+    padding: 1rem;
+    border-top: 1px solid #2d2d3f;
+}
+
+.role-select {
+    background: #1a1a25;
+    border: 1px solid #3d3d4f;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.role-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: capitalize;
+}
+
+.role-owner {
+    background: #7c3aed33;
+    color: #a78bfa;
+}
+
+.role-admin {
+    background: #dc262633;
+    color: #f87171;
+}
+
+.role-leader {
+    background: #2563eb33;
+    color: #60a5fa;
+}
+
+.role-employee {
+    background: #05966933;
+    color: #34d399;
+}
+
+.bulk-actions-bar {
+    background: #2563eb11;
+    border: 1px solid #2563eb44;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+    animation: fadeIn 0.2s ease;
+}
+
+.bulk-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.selected-row {
+    background: #2563eb11;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

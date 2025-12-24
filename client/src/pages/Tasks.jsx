@@ -1,0 +1,233 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { taskAPI, categoryAPI, orgAPI } from '../services/api';
+import CategorySidebar from '../components/tasks/CategorySidebar';
+import TaskList from '../components/tasks/TaskList';
+import TaskFilters from '../components/tasks/TaskFilters';
+import TaskModal from '../components/tasks/TaskModal';
+import CategoryTaskView from '../components/tasks/CategoryTaskView';
+import './Tasks.css';
+
+export default function Tasks() {
+    const [orgId] = useState(localStorage.getItem('selectedOrgId'));
+    const [orgName] = useState(localStorage.getItem('selectedOrgName'));
+    const [userRole] = useState(localStorage.getItem('userRole'));
+    const [tasks, setTasks] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [members, setMembers] = useState([]);
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [filters, setFilters] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [showTaskModal, setShowTaskModal] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
+    const [viewMode, setViewMode] = useState('list'); // 'list' or 'hierarchy'
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (!orgId) {
+            navigate('/select-org');
+            return;
+        }
+        loadData();
+    }, [orgId, navigate]);
+
+    useEffect(() => {
+        loadTasks();
+    }, [filters, selectedCategory]);
+
+    const loadData = async () => {
+        try {
+            const [tasksRes, categoriesRes, membersRes] = await Promise.all([
+                taskAPI.getAll(orgId),
+                categoryAPI.getAll(orgId),
+                orgAPI.getMembers(orgId)
+            ]);
+
+            setTasks(tasksRes.data);
+            setCategories(categoriesRes.data);
+            setMembers(membersRes.data);
+            setLoading(false);
+        } catch (err) {
+            console.error('Failed to load data:', err);
+            setLoading(false);
+        }
+    };
+
+    const loadTasks = async () => {
+        try {
+            const queryFilters = { ...filters };
+            if (selectedCategory) {
+                queryFilters.category_id = selectedCategory;
+            }
+            const response = await taskAPI.getAll(orgId, queryFilters);
+            setTasks(response.data);
+        } catch (err) {
+            console.error('Failed to load tasks:', err);
+        }
+    };
+
+    const handleToggleTask = async (taskId) => {
+        try {
+            await taskAPI.toggle(orgId, taskId);
+            loadTasks();
+        } catch (err) {
+            console.error('Failed to toggle task:', err);
+        }
+    };
+
+    const handleDeleteTask = async (taskId) => {
+        if (!window.confirm('Are you sure you want to delete this task?')) return;
+
+        try {
+            await taskAPI.delete(orgId, taskId);
+            loadTasks();
+        } catch (err) {
+            console.error('Failed to delete task:', err);
+        }
+    };
+
+    const handleEditTask = (task) => {
+        setEditingTask(task);
+        setShowTaskModal(true);
+    };
+
+    const handleCreateTask = () => {
+        setEditingTask(null);
+        setShowTaskModal(true);
+    };
+
+    const handleSaveTask = async (taskData) => {
+        try {
+            if (editingTask) {
+                await taskAPI.update(orgId, editingTask.id, taskData);
+            } else {
+                await taskAPI.create(orgId, taskData);
+            }
+            setShowTaskModal(false);
+            setEditingTask(null);
+            loadTasks();
+        } catch (err) {
+            console.error('Failed to save task:', err);
+            throw err;
+        }
+    };
+
+    const handleCategorySelect = (categoryId) => {
+        setSelectedCategory(categoryId === selectedCategory ? null : categoryId);
+    };
+
+    const handleUserSelect = (user) => {
+        setSelectedUser(user);
+    };
+
+    const handleChangeOrg = () => {
+        localStorage.removeItem('selectedOrgId');
+        localStorage.removeItem('selectedOrgName');
+        localStorage.removeItem('userRole');
+        navigate('/select-org');
+    };
+
+    if (loading) {
+        return <div className="loading-screen"><div className="spinner"></div></div>;
+    }
+
+    return (
+        <div className="tasks-page">
+            <header className="tasks-header">
+                <div className="header-left">
+                    <h1>🏢 {orgName}</h1>
+                    <span className="role-badge">{userRole}</span>
+                </div>
+                <div className="header-right">
+                    <button onClick={() => navigate('/dashboard')} className="btn-nav">Dashboard</button>
+                    <span className="user-name">{user?.name || user?.email}</span>
+                    <button onClick={handleChangeOrg} className="btn-change-org">Change Org</button>
+                    <button onClick={logout} className="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div className="tasks-container">
+                <CategorySidebar
+                    categories={categories}
+                    selectedCategory={selectedCategory}
+                    selectedUser={selectedUser}
+                    onSelectCategory={handleCategorySelect}
+                    onSelectUser={handleUserSelect}
+                    onCategoriesChange={loadData}
+                    orgId={orgId}
+                    userRole={userRole}
+                />
+
+                <main className="tasks-main">
+                    <div className="tasks-toolbar">
+                        <h2>📋 Tasks</h2>
+                        <div className="toolbar-actions">
+                            <div className="view-toggle">
+                                <button
+                                    className={`btn-view ${viewMode === 'list' ? 'active' : ''}`}
+                                    onClick={() => setViewMode('list')}
+                                >
+                                    📋 List View
+                                </button>
+                                <button
+                                    className={`btn-view ${viewMode === 'hierarchy' ? 'active' : ''}`}
+                                    onClick={() => setViewMode('hierarchy')}
+                                >
+                                    🌳 Hierarchy View
+                                </button>
+                            </div>
+                            <button className="btn btn-primary" onClick={handleCreateTask}>
+                                ➕ New Task
+                            </button>
+                        </div>
+                    </div>
+
+                    {viewMode === 'list' ? (
+                        <>
+                            <TaskFilters
+                                filters={filters}
+                                onFiltersChange={setFilters}
+                                members={members}
+                                userRole={userRole}
+                            />
+
+                            <TaskList
+                                tasks={tasks}
+                                onToggle={handleToggleTask}
+                                onEdit={handleEditTask}
+                                onDelete={handleDeleteTask}
+                                userRole={userRole}
+                            />
+                        </>
+                    ) : (
+                        <CategoryTaskView
+                            orgId={orgId}
+                            categories={categories}
+                            selectedCategory={selectedCategory}
+                            selectedUser={selectedUser}
+                            userRole={userRole}
+                            onEditTask={handleEditTask}
+                        />
+                    )}
+                </main>
+            </div>
+
+            {showTaskModal && (
+                <TaskModal
+                    task={editingTask}
+                    categories={categories}
+                    members={members}
+                    onSave={handleSaveTask}
+                    onClose={() => {
+                        setShowTaskModal(false);
+                        setEditingTask(null);
+                    }}
+                    userRole={userRole}
+                />
+            )}
+        </div>
+    );
+}

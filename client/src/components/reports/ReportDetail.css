@@ -1,0 +1,179 @@
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--bg-surface);
+    border-radius: 12px;
+    max-width: 800px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.report-detail .modal-header {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    padding: 1.5rem;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    color: white;
+}
+
+.report-detail .modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.report-date {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+}
+
+.detail-content {
+    padding: 1.5rem;
+}
+
+.detail-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.status-badge-large {
+    padding: 0.5rem 1rem;
+    border-radius: 16px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.submitted-info {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.detail-section {
+    margin-bottom: 2rem;
+}
+
+.detail-section h3 {
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.detail-task-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.detail-task-list li {
+    background: var(--bg-surface-light);
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.time-entries-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.time-entry-item {
+    background: var(--bg-surface-light);
+    padding: 0.75rem;
+    border-radius: 6px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1rem;
+    align-items: center;
+}
+
+.entry-type {
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.entry-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.entry-task {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.entry-time {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.entry-duration {
+    color: var(--success);
+    font-weight: 600;
+    font-size: 1.05rem;
+}
+
+.time-total {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(16, 185, 129, 0.1);
+    border-radius: 6px;
+    text-align: right;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.time-total strong {
+    color: var(--success);
+}
+
+.extra-work-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.extra-work-list li {
+    background: var(--bg-surface-light);
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.work-description {
+    color: var(--text-primary);
+}
+
+.work-duration {
+    color: var(--success);
+    font-weight: 600;
+}

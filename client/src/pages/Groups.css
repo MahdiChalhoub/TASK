@@ -1,0 +1,157 @@
+.groups-page {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.group-card {
+    background: #1e1e2d;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #2d2d3f;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 150px;
+}
+
+.group-info h3 {
+    margin: 0 0 0.5rem 0;
+    color: #fff;
+}
+
+.member-count {
+    color: #a0a0b0;
+    font-size: 0.9rem;
+}
+
+.group-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.btn-danger-text {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+}
+
+/* Manage Modal */
+.manage-modal {
+    max-width: 800px;
+    width: 90%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.manage-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    overflow-y: auto;
+    padding: 1rem 0;
+}
+
+.member-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.member-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: #252535;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+}
+
+.email-text {
+    color: #666;
+    font-size: 0.85rem;
+    margin-left: 0.5rem;
+}
+
+.member-select-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.member-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: #252535;
+    border-radius: 6px;
+}
+
+.btn-sm-add {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-sm-danger {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+
+    cursor: pointer;
+}
+
+.checkbox-option {
+    cursor: pointer;
+}
+
+.checkbox-option label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    cursor: pointer;
+}
+
+.checkbox-option input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #3b82f6;
+}
+
+.btn-block {
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0.75rem;
+}
+
+.multi-select {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #2d2d3f;
+    padding: 0.5rem;
+    border-radius: 6px;
+}
