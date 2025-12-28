@@ -149,8 +149,8 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
     db.run(`
         INSERT INTO tasks (
             org_id, title, description, status, priority, due_date,
-            category_id, assigned_to_user_id, created_by_user_id, estimated_minutes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            category_id, assigned_to_user_id, created_by_user_id, estimated_minutes, require_finish_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
         req.orgId,
         title,
@@ -161,12 +161,28 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
         category_id || null,
         assigned_to_user_id,
         req.user.id,
-        req.body.estimated_minutes || 0
+        req.body.estimated_minutes || 0,
+        req.body.require_finish_time !== undefined ? req.body.require_finish_time : 1
     ], function (err) {
         if (err) {
             console.error('Task creation error:', err);
             return res.status(500).json({ error: 'Failed to create task' });
         }
+
+        const taskId = this.lastID;
+
+        // Log task creation activity
+        db.run(`
+            INSERT INTO task_activity_log (
+                org_id, task_id, user_id, action_type, new_status, notes
+            ) VALUES (?, ?, ?, 'created', ?, ?)
+        `, [
+            req.orgId,
+            taskId,
+            req.user.id,
+            status || 'pending',
+            `Task created: ${title}`
+        ]);
 
         db.get(`
             SELECT t.*, 
@@ -176,7 +192,7 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
             LEFT JOIN users u_assigned ON t.assigned_to_user_id = u_assigned.id
             LEFT JOIN task_categories c ON t.category_id = c.id
             WHERE t.id = ?
-        `, [this.lastID], (err, task) => {
+        `, [taskId], (err, task) => {
             res.json(task);
         });
     });
@@ -185,12 +201,15 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
 // Update task
 router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
     const { id } = req.params;
+    const taskId = id;
     const { title, description, status, priority, due_date, category_id, assigned_to_user_id } = req.body;
 
     // Get existing task
     db.get('SELECT * FROM tasks WHERE id = ? AND org_id = ?', [id, req.orgId], (err, task) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         if (!task) return res.status(404).json({ error: 'Task not found' });
+
+        console.log(`Updating task ${id}: Status ${task.status} -> ${status}`);
 
         // Check permissions
         if (req.userRole === 'employee' && task.assigned_to_user_id !== req.user.id) {
@@ -214,11 +233,78 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
             updates.push('status = ?');
             params.push(status);
 
-            // Set completed_at when status changes to completed
+            // Handle task completion - create time entry
             if (status === 'completed' && task.status !== 'completed') {
+                console.log('Processing task completion logic...');
                 updates.push('completed_at = CURRENT_TIMESTAMP');
-            } else if (status !== 'completed') {
+
+                // Use actual_minutes from request, or fall back to estimated_minutes
+                const actualMinutes = req.body.actual_minutes !== undefined ? req.body.actual_minutes : task.estimated_minutes || 0;
+
+                // After updating the task, create a time entry
+                const completedAt = new Date();
+                const taskDate = completedAt.toISOString().split('T')[0];
+
+                // Create time entry for the assigned user
+                db.run(`
+                    INSERT INTO time_entries (
+                        org_id, user_id, date, type, task_id, 
+                        start_at, end_at, duration_minutes, 
+                        auto_created_from_task, status
+                    ) VALUES (?, ?, ?, 'auto_task_completion', ?, ?, ?, ?, 1, 'pending')
+                `, [
+                    req.orgId,
+                    task.assigned_to_user_id,
+                    taskDate,
+                    taskId,
+                    completedAt.toISOString(),
+                    completedAt.toISOString(),
+                    actualMinutes
+                ], (err) => {
+                    if (err) {
+                        console.error('Error creating time entry for completed task:', err);
+                    } else {
+                        console.log(`Auto-created time entry for task ${taskId}, duration: ${actualMinutes} minutes`);
+                    }
+                });
+
+                // Log completion activity
+                db.run(`
+                    INSERT INTO task_activity_log (
+                        org_id, task_id, user_id, action_type, old_status, new_status, actual_minutes, notes
+                    ) VALUES (?, ?, ?, 'completed', ?, 'completed', ?, ?)
+                `, [
+                    req.orgId,
+                    taskId,
+                    req.user.id,
+                    task.status,
+                    actualMinutes,
+                    `Task completed with ${actualMinutes} minutes`
+                ]);
+
+                // Handle task uncompletion
+            } else if (status !== 'completed' && task.status === 'completed') {
                 updates.push('completed_at = NULL');
+
+                // We DO NOT delete the time entry anymore based on user request.
+                // Instead, we log the reason for uncompletion.
+
+                const reason = req.body.reason || 'No reason provided';
+
+                // Log uncompletion activity with reason
+                db.run(`
+                    INSERT INTO task_activity_log (
+                        org_id, task_id, user_id, action_type, old_status, new_status, notes
+                    ) VALUES (?, ?, ?, 'uncompleted', 'completed', ?, ?)
+                `, [
+                    req.orgId,
+                    taskId,
+                    req.user.id,
+                    status,
+                    `Task reopened. Reason: ${reason}`
+                ], (err) => {
+                    if (err) console.error('Error logging uncompletion activity:', err);
+                });
             }
         }
 

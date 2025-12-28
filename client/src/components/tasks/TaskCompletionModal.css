@@ -1,0 +1,132 @@
+.completion-modal-content {
+    background: var(--bg-surface);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border);
+}
+
+.completion-modal-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    border-radius: 16px 16px 0 0;
+}
+
+.completion-modal-header h2 {
+    margin: 0;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.completion-modal-body {
+    padding: 2rem;
+}
+
+.task-info {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.task-info h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-primary);
+    font-size: 1.25rem;
+}
+
+.estimated-time {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.time-input-section {
+    margin-bottom: 2rem;
+}
+
+.time-input-section label {
+    display: block;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.time-inputs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.time-input-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.time-input-group input {
+    width: 100%;
+    padding: 1rem;
+    background: var(--bg-surface-light);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    transition: border-color 0.3s ease;
+}
+
+.time-input-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.time-input-group span {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.total-time {
+    text-align: center;
+    padding: 1rem;
+    background: var(--bg-surface-light);
+    border-radius: 8px;
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.total-time strong {
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.completion-modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.completion-modal-actions .btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+}
+
+@media (max-width: 600px) {
+    .completion-modal-content {
+        width: 95%;
+    }
+
+    .time-inputs {
+        flex-direction: column;
+    }
+}

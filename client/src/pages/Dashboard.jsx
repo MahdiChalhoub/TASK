@@ -31,6 +31,7 @@ export default function Dashboard() {
                 </div>
                 <div className="header-right">
                     <span className="user-name">{user?.name || user?.email}</span>
+                    <button onClick={() => navigate('/settings')} className="btn-change-org">⚙️ Settings</button>
                     <button onClick={handleChangeOrg} className="btn-change-org">Change Org</button>
                     <button onClick={logout} className="btn-logout">Logout</button>
                 </div>

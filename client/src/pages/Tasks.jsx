@@ -6,7 +6,10 @@ import CategorySidebar from '../components/tasks/CategorySidebar';
 import TaskList from '../components/tasks/TaskList';
 import TaskFilters from '../components/tasks/TaskFilters';
 import TaskModal from '../components/tasks/TaskModal';
+import TaskCompletionModal from '../components/tasks/TaskCompletionModal';
+import TaskReopenModal from '../components/tasks/TaskReopenModal';
 import CategoryTaskView from '../components/tasks/CategoryTaskView';
+import CalendarTaskView from '../components/tasks/CalendarTaskView';
 import './Tasks.css';
 
 export default function Tasks() {
@@ -22,7 +25,11 @@ export default function Tasks() {
     const [loading, setLoading] = useState(true);
     const [showTaskModal, setShowTaskModal] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
-    const [viewMode, setViewMode] = useState('list'); // 'list' or 'hierarchy'
+    const [viewMode, setViewMode] = useState('list'); // 'list', 'hierarchy', 'calendar'
+    const [showCompletionModal, setShowCompletionModal] = useState(false);
+    const [completingTask, setCompletingTask] = useState(null);
+    const [showReopenModal, setShowReopenModal] = useState(false);
+    const [reopeningTask, setReopeningTask] = useState(null);
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
@@ -69,12 +76,54 @@ export default function Tasks() {
         }
     };
 
-    const handleToggleTask = async (taskId) => {
+    const handleToggleTask = async (task) => {
+        // If task is being completed and requires finish time, show modal
+        if (task.status !== 'completed' && task.require_finish_time) {
+            setCompletingTask(task);
+            setShowCompletionModal(true);
+        } else {
+            // If uncompleting a task, show reopen modal
+            if (task.status === 'completed') {
+                setReopeningTask(task);
+                setShowReopenModal(true);
+                return;
+            }
+
+            // Otherwise just toggle normally
+            try {
+                await taskAPI.toggle(orgId, task.id);
+                loadTasks();
+            } catch (err) {
+                console.error('Failed to toggle task:', err);
+            }
+        }
+    };
+
+    const handleReopenTask = async (reason) => {
         try {
-            await taskAPI.toggle(orgId, taskId);
+            await taskAPI.update(orgId, reopeningTask.id, {
+                status: 'pending',
+                reason: reason
+            });
+            setShowReopenModal(false);
+            setReopeningTask(null);
             loadTasks();
         } catch (err) {
-            console.error('Failed to toggle task:', err);
+            console.error('Failed to reopen task:', err);
+        }
+    };
+
+    const handleCompleteWithTime = async (actualMinutes) => {
+        try {
+            await taskAPI.update(orgId, completingTask.id, {
+                status: 'completed',
+                actual_minutes: actualMinutes
+            });
+            setShowCompletionModal(false);
+            setCompletingTask(null);
+            loadTasks();
+        } catch (err) {
+            console.error('Failed to complete task:', err);
         }
     };
 
@@ -102,6 +151,7 @@ export default function Tasks() {
     const handleSaveTask = async (taskData) => {
         try {
             if (editingTask) {
+                // Logic for prompting is inside TaskModal (via Reason field)
                 await taskAPI.update(orgId, editingTask.id, taskData);
             } else {
                 await taskAPI.create(orgId, taskData);
@@ -143,6 +193,7 @@ export default function Tasks() {
                 </div>
                 <div className="header-right">
                     <button onClick={() => navigate('/dashboard')} className="btn-nav">Dashboard</button>
+                    <button onClick={() => navigate('/settings')} className="btn-nav">⚙️ Settings</button>
                     <span className="user-name">{user?.name || user?.email}</span>
                     <button onClick={handleChangeOrg} className="btn-change-org">Change Org</button>
                     <button onClick={logout} className="btn-logout">Logout</button>
@@ -170,13 +221,19 @@ export default function Tasks() {
                                     className={`btn-view ${viewMode === 'list' ? 'active' : ''}`}
                                     onClick={() => setViewMode('list')}
                                 >
-                                    📋 List View
+                                    📋 List
                                 </button>
                                 <button
                                     className={`btn-view ${viewMode === 'hierarchy' ? 'active' : ''}`}
                                     onClick={() => setViewMode('hierarchy')}
                                 >
-                                    🌳 Hierarchy View
+                                    🌳 Hierarchy
+                                </button>
+                                <button
+                                    className={`btn-view ${viewMode === 'calendar' ? 'active' : ''}`}
+                                    onClick={() => setViewMode('calendar')}
+                                >
+                                    📅 Calendar
                                 </button>
                             </div>
                             <button className="btn btn-primary" onClick={handleCreateTask}>
@@ -202,6 +259,11 @@ export default function Tasks() {
                                 userRole={userRole}
                             />
                         </>
+                    ) : viewMode === 'calendar' ? (
+                        <CalendarTaskView
+                            tasks={tasks}
+                            onEditTask={handleEditTask}
+                        />
                     ) : (
                         <CategoryTaskView
                             orgId={orgId}
@@ -226,6 +288,29 @@ export default function Tasks() {
                         setEditingTask(null);
                     }}
                     userRole={userRole}
+                    orgId={orgId}
+                />
+            )}
+
+            {showCompletionModal && completingTask && (
+                <TaskCompletionModal
+                    task={completingTask}
+                    onComplete={handleCompleteWithTime}
+                    onCancel={() => {
+                        setShowCompletionModal(false);
+                        setCompletingTask(null);
+                    }}
+                />
+            )}
+
+            {showReopenModal && reopeningTask && (
+                <TaskReopenModal
+                    task={reopeningTask}
+                    onReopen={handleReopenTask}
+                    onCancel={() => {
+                        setShowReopenModal(false);
+                        setReopeningTask(null);
+                    }}
                 />
             )}
         </div>

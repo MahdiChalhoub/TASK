@@ -106,6 +106,40 @@ select:focus {
     border-color: var(--primary);
 }
 
+.checkbox-group {
+    padding: 1rem;
+    background: var(--bg-surface-light);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: auto;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.checkbox-group span {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.field-hint {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    padding-left: 2rem;
+}
+
 @media (max-width: 640px) {
     .form-row {
         grid-template-columns: 1fr;

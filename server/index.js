@@ -9,7 +9,7 @@ const bodyParser = require('body-parser');
 const db = require('./db');
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5002;
 
 // Middleware
 app.use((req, res, next) => {
@@ -84,8 +84,66 @@ const reportRoutes = require('./routes/reports');
 const dashboardRoutes = require('./routes/dashboards');
 const formRoutes = require('./routes/forms');
 const groupRoutes = require('./routes/groups');
+const settingsRoutes = require('./routes/settings');
+const taskActivityRoutes = require('./routes/task-activity');
+
+// Inline Task Activity Routes for Debugging
+const taskActivityRouter = express.Router();
+
+taskActivityRouter.get('/test', (req, res) => {
+    res.send('Activity Router Working');
+});
+
+// Middleware
+const requireAuth = (req, res, next) => {
+    if (!req.isAuthenticated || !req.isAuthenticated()) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+};
+
+const checkOrgMembership = (req, res, next) => {
+    const orgId = req.headers['x-org-id'] || req.body.orgId || req.query.orgId;
+    if (!orgId) {
+        return res.status(400).json({ error: 'Organization ID required' });
+    }
+
+    db.get(
+        'SELECT role FROM organization_members WHERE org_id = ? AND user_id = ?',
+        [orgId, req.user.id],
+        (err, member) => {
+            if (err || !member) {
+                return res.status(403).json({ error: 'Not a member of this organization' });
+            }
+            req.orgId = parseInt(orgId);
+            req.userRole = member.role;
+            next();
+        }
+    );
+};
+
+taskActivityRouter.get('/date/:date', requireAuth, checkOrgMembership, (req, res) => {
+    console.log('Task Activity Date Route Hit:', req.params.date);
+    const { date } = req.params;
+    const query = `
+        SELECT tal.*, t.title as task_title, u.name as user_name
+        FROM task_activity_log tal
+        LEFT JOIN tasks t ON tal.task_id = t.id
+        LEFT JOIN users u ON tal.user_id = u.id
+        WHERE tal.org_id = ? AND DATE(tal.created_at) = ?
+        ORDER BY tal.created_at DESC
+    `;
+    db.all(query, [req.orgId, date], (err, activities) => {
+        if (err) {
+            console.error('Error:', err);
+            return res.status(500).json({ error: 'Failed' });
+        }
+        res.json(activities);
+    });
+});
 
 app.use('/api/auth', authRoutes);
+app.use('/api/activity', taskActivityRouter); // Renamed and moved up
 app.use('/api/orgs', orgRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/categories', categoryRoutes);
@@ -100,7 +158,11 @@ app.get('/api/test-direct', (req, res) => {
 console.log('Group Routes type:', typeof groupRoutes);
 console.log('Group Routes stack:', groupRoutes && groupRoutes.stack && groupRoutes.stack.length);
 
+console.log('Task Activity Routes type:', typeof taskActivityRouter);
+
 app.use('/api/groups', groupRoutes);
+app.use('/api/settings', settingsRoutes);
+// app.use('/api/task-activity', taskActivityRoutes); // Commented out old one
 
 app.get('/api', (req, res) => {
     res.send('Virtual Office API is running');
@@ -110,6 +172,9 @@ app.get('/', (req, res) => {
     res.send('Virtual Office API is running');
 });
 
+
+
 app.listen(PORT, () => {
     console.log(`🚀 Virtual Office server running on port ${PORT}`);
+    console.log(`Test URL: http://localhost:${PORT}/api/activity/test`);
 });

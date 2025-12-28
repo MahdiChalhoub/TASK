@@ -26,7 +26,7 @@ function initDb() {
         db.run(`CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
+            name TEXT,
             google_id TEXT UNIQUE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
@@ -36,7 +36,7 @@ function initDb() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             org_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
-            role TEXT CHECK(role IN ('owner', 'admin', 'leader', 'employee')) NOT NULL,
+            role TEXT CHECK(role IN ('owner', 'admin', 'leader', 'employee')) DEFAULT 'employee',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(org_id) REFERENCES organizations(id),
             FOREIGN KEY(user_id) REFERENCES users(id),
@@ -96,7 +96,7 @@ function initDb() {
             org_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             date DATE NOT NULL,
-            type TEXT CHECK(type IN ('day_session', 'task_timer', 'manual')) NOT NULL,
+            type TEXT CHECK(type IN ('day_session', 'task_timer', 'manual', 'auto_task_completion')) NOT NULL,
             task_id INTEGER,
             start_at DATETIME,
             end_at DATETIME,
@@ -104,6 +104,7 @@ function initDb() {
             status TEXT CHECK(status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
             reviewer_user_id INTEGER,
             review_note TEXT,
+            auto_created_from_task BOOLEAN DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(org_id) REFERENCES organizations(id),
             FOREIGN KEY(user_id) REFERENCES users(id),
@@ -198,6 +199,7 @@ function initDb() {
             status TEXT CHECK(status IN ('submitted', 'returned_for_edit', 'approved')) DEFAULT 'submitted',
             reviewer_user_id INTEGER,
             reviewer_note TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(org_id) REFERENCES organizations(id),
             FOREIGN KEY(user_id) REFERENCES users(id),
             FOREIGN KEY(reviewer_user_id) REFERENCES users(id),
@@ -207,39 +209,50 @@ function initDb() {
         // Daily Report Answers
         db.run(`CREATE TABLE IF NOT EXISTS daily_report_answers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            daily_report_id INTEGER NOT NULL,
+            report_id INTEGER NOT NULL,
             question_id INTEGER NOT NULL,
             answer_text TEXT,
-            answer_choices_json TEXT,
-            FOREIGN KEY(daily_report_id) REFERENCES daily_reports(id) ON DELETE CASCADE,
+            FOREIGN KEY(report_id) REFERENCES daily_reports(id) ON DELETE CASCADE,
             FOREIGN KEY(question_id) REFERENCES report_form_questions(id)
         )`);
 
-        // Daily Report Extra Work
-        db.run(`CREATE TABLE IF NOT EXISTS daily_report_extra_work (
+        // Daily Report Answer Choices
+        db.run(`CREATE TABLE IF NOT EXISTS daily_report_answer_choices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            daily_report_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
-            minutes INTEGER NOT NULL,
-            note TEXT,
-            FOREIGN KEY(daily_report_id) REFERENCES daily_reports(id) ON DELETE CASCADE
+            answer_id INTEGER NOT NULL,
+            choice_id INTEGER NOT NULL,
+            FOREIGN KEY(answer_id) REFERENCES daily_report_answers(id) ON DELETE CASCADE,
+            FOREIGN KEY(choice_id) REFERENCES report_form_choices(id)
         )`);
 
-        // Daily Report AI Summaries
-        db.run(`CREATE TABLE IF NOT EXISTS daily_report_ai_summaries (
+        // AI Report Summaries
+        db.run(`CREATE TABLE IF NOT EXISTS ai_report_summaries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             org_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
             date DATE NOT NULL,
-            model_version TEXT NOT NULL,
-            summary_json TEXT NOT NULL,
+            summary_text TEXT,
+            model_version TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(org_id) REFERENCES organizations(id),
             FOREIGN KEY(user_id) REFERENCES users(id),
             UNIQUE(org_id, user_id, date, model_version)
         )`);
 
-        console.log('Database tables initialized for Virtual Office Application.');
+        // User Settings
+        db.run(`CREATE TABLE IF NOT EXISTS user_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            org_id INTEGER NOT NULL,
+            task_due_date_cutoff_hour INTEGER DEFAULT 15,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(org_id) REFERENCES organizations(id),
+            UNIQUE(user_id, org_id)
+        )`);
+
+        console.log('Database tables initialized successfully');
     });
 }
 

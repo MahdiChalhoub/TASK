@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { settingsAPI } from '../../services/api';
 import './TaskModal.css';
 
-export default function TaskModal({ task, categories, members, onSave, onClose, userRole }) {
+export default function TaskModal({ task, categories, members, onSave, onClose, userRole, orgId }) {
+    const [userSettings, setUserSettings] = useState(null);
     const [formData, setFormData] = useState({
         title: task?.title || '',
         description: task?.description || '',
@@ -10,10 +12,53 @@ export default function TaskModal({ task, categories, members, onSave, onClose, 
         due_date: task?.due_date || '',
         category_id: task?.category_id || '',
         assigned_to_user_id: task?.assigned_to_user_id || '',
-        estimated_minutes: task?.estimated_minutes || 0
+        estimated_minutes: task?.estimated_minutes || 0,
+        require_finish_time: task?.require_finish_time !== undefined ? task.require_finish_time : true
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+
+    // Load user settings
+    useEffect(() => {
+        const loadSettings = async () => {
+            try {
+                const response = await settingsAPI.get(orgId);
+                setUserSettings(response.data);
+
+                // Set smart default due date for new tasks only
+                if (!task && !formData.due_date) {
+                    const defaultDate = calculateDefaultDueDate(response.data.task_due_date_cutoff_hour || 15);
+                    setFormData(prev => ({ ...prev, due_date: defaultDate }));
+                }
+            } catch (err) {
+                console.error('Failed to load settings:', err);
+                // Use default cutoff hour if settings fail to load
+                if (!task && !formData.due_date) {
+                    const defaultDate = calculateDefaultDueDate(15);
+                    setFormData(prev => ({ ...prev, due_date: defaultDate }));
+                }
+            }
+        };
+
+        if (orgId) {
+            loadSettings();
+        }
+    }, [orgId, task]);
+
+    // Calculate smart default due date
+    const calculateDefaultDueDate = (cutoffHour) => {
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        // If before cutoff hour, use today; otherwise use tomorrow
+        if (currentHour < cutoffHour) {
+            return now.toISOString().split('T')[0];
+        } else {
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return tomorrow.toISOString().split('T')[0];
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -94,6 +139,21 @@ export default function TaskModal({ task, categories, members, onSave, onClose, 
                         </div>
                     </div>
 
+                    {/* Show Reason field if reopening a task */}
+                    {task && task.status === 'completed' && formData.status !== 'completed' && (
+                        <div className="form-group reason-group fade-in">
+                            <label>Reason for Reopening *</label>
+                            <textarea
+                                value={formData.reason || ''}
+                                onChange={(e) => handleChange('reason', e.target.value)}
+                                placeholder="Why is this task being reopened? (Required)"
+                                rows="2"
+                                required
+                                className="reason-input"
+                            />
+                        </div>
+                    )}
+
                     <div className="form-row">
                         <div className="form-group">
                             <label>Category</label>
@@ -129,6 +189,18 @@ export default function TaskModal({ task, categories, members, onSave, onClose, 
                                 onChange={(e) => handleChange('estimated_minutes', parseInt(e.target.value) || 0)}
                                 placeholder="e.g. 60"
                             />
+                        </div>
+
+                        <div className="form-group checkbox-group">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={formData.require_finish_time}
+                                    onChange={(e) => handleChange('require_finish_time', e.target.checked)}
+                                />
+                                <span>⏱️ Require actual time when completing (recommended)</span>
+                            </label>
+                            <p className="field-hint">When enabled, user must enter actual time spent when marking task as complete</p>
                         </div>
                     </div>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { timeAPI, taskAPI } from '../services/api';
+import { timeAPI, taskAPI, taskActivityAPI } from '../services/api';
 import DaySession from '../components/time/DaySession';
 import TaskTimer from '../components/time/TaskTimer';
 import QuickLog from '../components/time/QuickLog';
@@ -22,6 +22,7 @@ export default function TimeTracking() {
     const [daySessionStatus, setDaySessionStatus] = useState({ isClockedIn: false, session: null });
     const [activeTimers, setActiveTimers] = useState([]);
     const [timeHistory, setTimeHistory] = useState([]);
+    const [taskActivities, setTaskActivities] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const { user, logout } = useAuth();
@@ -37,6 +38,7 @@ export default function TimeTracking() {
 
     useEffect(() => {
         loadTimeHistory();
+        loadTaskActivities();
     }, [selectedDate]);
 
     const loadData = async () => {
@@ -68,8 +70,18 @@ export default function TimeTracking() {
         }
     };
 
+    const loadTaskActivities = async () => {
+        try {
+            const response = await taskActivityAPI.getByDate(orgId, selectedDate);
+            setTaskActivities(response.data);
+        } catch (err) {
+            console.error('Failed to load task activities:', err);
+        }
+    };
+
     const refreshData = () => {
         loadData();
+        loadTaskActivities();
     };
 
     const handleChangeOrg = () => {
@@ -140,6 +152,53 @@ export default function TimeTracking() {
                             onUpdate={refreshData}
                             orgId={orgId}
                         />
+                    </div>
+
+                    {/* Task Activity Section */}
+                    <div className="task-activity-section">
+                        <h3>📋 Task Activity for {selectedDate}</h3>
+                        {taskActivities.length === 0 ? (
+                            <p className="no-activities">No task activities for this date</p>
+                        ) : (
+                            <div className="activity-list">
+                                {taskActivities.map((activity) => (
+                                    <div key={activity.id} className={`activity-item ${activity.action_type}`}>
+                                        <div className="activity-icon">
+                                            {activity.action_type === 'created' && '➕'}
+                                            {activity.action_type === 'completed' && '✅'}
+                                            {activity.action_type === 'uncompleted' && '↩️'}
+                                            {activity.action_type === 'status_changed' && '🔄'}
+                                            {activity.action_type === 'updated' && '✏️'}
+                                            {activity.action_type === 'deleted' && '🗑️'}
+                                        </div>
+                                        <div className="activity-content">
+                                            <div className="activity-header">
+                                                <strong>{activity.task_title || 'Unknown Task'}</strong>
+                                                <span className="activity-time">
+                                                    {new Date(activity.created_at).toLocaleTimeString()}
+                                                </span>
+                                            </div>
+                                            <div className="activity-details">
+                                                <span className="activity-user">{activity.user_name}</span>
+                                                {activity.action_type === 'completed' && activity.actual_minutes && (
+                                                    <span className="activity-time-spent">
+                                                        ⏱️ {Math.floor(activity.actual_minutes / 60)}h {activity.actual_minutes % 60}m
+                                                    </span>
+                                                )}
+                                                {activity.old_status && activity.new_status && (
+                                                    <span className="activity-status-change">
+                                                        {activity.old_status} → {activity.new_status}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {activity.notes && (
+                                                <div className="activity-notes">{activity.notes}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <TimeHistory

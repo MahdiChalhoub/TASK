@@ -44,7 +44,7 @@ export default function TaskList({ tasks, onToggle, onEdit, onDelete, userRole }
 
         return (
             <div key={task.id} className={`task-card ${task.status === 'completed' ? 'completed' : ''}`}>
-                <div className="task-checkbox" onClick={() => onToggle(task.id)}>
+                <div className="task-checkbox" onClick={() => onToggle(task)}>
                     <div className={`checkbox ${task.status === 'completed' ? 'checked' : ''}`}>
                         {task.status === 'completed' && '✓'}
                     </div>
@@ -90,14 +90,20 @@ export default function TaskList({ tasks, onToggle, onEdit, onDelete, userRole }
                 <div className="task-actions">
                     <button
                         className="btn-icon"
-                        onClick={() => onEdit(task)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(task);
+                        }}
                         title="Edit task"
                     >
                         ✏️
                     </button>
                     <button
                         className="btn-icon"
-                        onClick={() => onDelete(task.id)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(task.id);
+                        }}
                         title="Delete task"
                     >
                         🗑️

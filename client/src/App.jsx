@@ -9,6 +9,7 @@ import Reports from './pages/Reports'
 import Forms from './pages/Forms'
 import Groups from './pages/Groups'
 import Team from './pages/Team'
+import Settings from './pages/Settings'
 import './App.css'
 
 function App() {
@@ -34,9 +35,11 @@ function App() {
             <Route path="/forms" element={user ? <Forms /> : <Navigate to="/login" />} />
             <Route path="/groups" element={user ? <Groups /> : <Navigate to="/login" />} />
             <Route path="/team" element={user ? <Team /> : <Navigate to="/login" />} />
+            <Route path="/settings" element={user ? <Settings /> : <Navigate to="/login" />} />
             <Route path="/" element={<Navigate to={user ? "/select-org" : "/login"} />} />
         </Routes>
     )
 }
 
 export default App
+

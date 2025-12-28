@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5001/api';
+const API_URL = 'http://localhost:5002/api';
 
 const api = axios.create({
     baseURL: API_URL,
@@ -113,6 +113,19 @@ export const groupAPI = {
     getMembers: (orgId, id) => api.get(`/groups/${id}/members`, { headers: { 'x-org-id': orgId } }),
     addMember: (orgId, id, userId) => api.post(`/groups/${id}/members`, { orgId, userId }),
     removeMember: (orgId, id, userId) => api.delete(`/groups/${id}/members/${userId}`, { headers: { 'x-org-id': orgId } })
+};
+
+// Settings APIs
+export const settingsAPI = {
+    get: (orgId) => api.get('/settings', { headers: { 'x-org-id': orgId } }),
+    update: (orgId, data) => api.put('/settings', { ...data, orgId })
+};
+
+// Task Activity APIs
+export const taskActivityAPI = {
+    getByDate: (orgId, date) => api.get(`/activity/date/${date}`, { headers: { 'x-org-id': orgId } }),
+    getByUserAndDate: (orgId, userId, date) => api.get(`/activity/user/${userId}/date/${date}`, { headers: { 'x-org-id': orgId } }),
+    getByTask: (orgId, taskId) => api.get(`/activity/task/${taskId}`, { headers: { 'x-org-id': orgId } })
 };
 
 export default api;
