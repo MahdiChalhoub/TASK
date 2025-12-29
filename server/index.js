@@ -58,16 +58,30 @@ passport.use(new GoogleStrategy({
         if (user) {
             return done(null, user);
         } else {
-            // Create new user
-            db.run('INSERT INTO users (email, name, google_id) VALUES (?, ?, ?)',
-                [email, name, googleId],
-                function (err) {
-                    if (err) return done(err);
-                    db.get('SELECT * FROM users WHERE id = ?', [this.lastID], (err, newUser) => {
-                        return done(err, newUser);
+            // Check if user exists with same email (Account Linking)
+            db.get('SELECT * FROM users WHERE email = ?', [email], (err, existingUser) => {
+                if (err) return done(err);
+
+                if (existingUser) {
+                    // Link Google ID to existing user
+                    db.run('UPDATE users SET google_id = ? WHERE id = ?', [googleId, existingUser.id], (err) => {
+                        if (err) return done(err);
+                        existingUser.google_id = googleId; // Update local object
+                        return done(null, existingUser);
                     });
+                } else {
+                    // Create new user (No existing email)
+                    db.run('INSERT INTO users (email, name, google_id) VALUES (?, ?, ?)',
+                        [email, name, googleId],
+                        function (err) {
+                            if (err) return done(err);
+                            db.get('SELECT * FROM users WHERE id = ?', [this.lastID], (err, newUser) => {
+                                return done(err, newUser);
+                            });
+                        }
+                    );
                 }
-            );
+            });
         }
     });
 }));
