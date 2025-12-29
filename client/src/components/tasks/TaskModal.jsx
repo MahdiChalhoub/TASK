@@ -207,13 +207,14 @@ export default function TaskModal({ task, categories, members, onSave, onClose, 
 
                     {userRole !== 'employee' && (
                         <div className="form-group">
-                            <label>Assign To *</label>
+                            <label>Assigned To (Optional)</label>
                             <select
+                                name="assigned_to_user_id"
                                 value={formData.assigned_to_user_id}
                                 onChange={(e) => handleChange('assigned_to_user_id', e.target.value)}
-                                required
+                                className="form-control"
                             >
-                                <option value="">Select user</option>
+                                <option value="">-- Unassigned --</option>
                                 {members.map(member => (
                                     <option key={member.id} value={member.id}>
                                         {member.name} ({member.email})
