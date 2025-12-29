@@ -101,6 +101,9 @@ router.get('/migrate', (req, res) => {
              field_id INTEGER NOT NULL REFERENCES report_fields(id),
              answer_text TEXT
         )`
+            `INSERT INTO task_categories (org_id, name, sort_order) 
+         SELECT 1, 'General', 0 
+         WHERE NOT EXISTS (SELECT 1 FROM task_categories WHERE org_id = 1 AND name = 'General')`
     ];
 
     let results = [];
@@ -109,9 +112,9 @@ router.get('/migrate', (req, res) => {
     migrations.forEach((sql, index) => {
         db.pool.query(sql, (err) => {
             if (err) {
-                results.push({ sql: sql.substring(0, 30) + "...", status: "failed", error: err.message });
+                results.push({ sql: sql, status: "failed", error: err.message });
             } else {
-                results.push({ sql: sql.substring(0, 30) + "...", status: "success" });
+                results.push({ sql: sql, status: "success" });
             }
             completed++;
             if (completed === migrations.length) {
