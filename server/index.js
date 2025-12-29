@@ -132,6 +132,7 @@ const formRoutes = require('./routes/forms');
 const groupRoutes = require('./routes/groups');
 const settingsRoutes = require('./routes/settings');
 const taskActivityRoutes = require('./routes/task-activity');
+const debugRoutes = require('./routes/debug'); // Added this line
 
 // Inline Task Activity Routes for Debugging
 const taskActivityRouter = express.Router();
