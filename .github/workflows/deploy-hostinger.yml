@@ -45,8 +45,8 @@ jobs:
             **/.github/**
           # Deploy ONLY the React Build output
           local-dir: client/dist/
-          # Deploy to the specific workspace folder
-          server-dir: public_html/workspace/
+          # Deploy to the specific workspace folder (Trying root of FTP)
+          server-dir: ./
           
       - name: ⚠️ Post-Deploy Instructions
         run: |
