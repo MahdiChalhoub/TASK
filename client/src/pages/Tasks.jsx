@@ -47,21 +47,37 @@ export default function Tasks() {
 
     const loadData = async () => {
         try {
-            const [tasksRes, categoriesRes, membersRes] = await Promise.all([
-                taskAPI.getAll(orgId),
-                categoryAPI.getAll(orgId),
-                orgAPI.getMembers(orgId)
-            ]);
+            // Load Tasks
+            try {
+                const tasksRes = await taskAPI.getAll(orgId);
+                setTasks(tasksRes.data);
+            } catch (e) {
+                console.error("Tasks Load Failed:", e);
+                alert(`Tasks Load Failed: ${e.response?.data?.details || e.message}`);
+            }
 
-            setTasks(tasksRes.data);
-            setCategories(categoriesRes.data);
-            setMembers(membersRes.data);
+            // Load Categories
+            try {
+                const categoriesRes = await categoryAPI.getAll(orgId);
+                setCategories(categoriesRes.data);
+            } catch (e) {
+                console.error("Categories Load Failed:", e);
+                alert(`Categories Load Failed: ${e.response?.data?.details || e.message}`);
+            }
+
+            // Load Members
+            try {
+                const membersRes = await orgAPI.getMembers(orgId);
+                setMembers(membersRes.data);
+            } catch (e) {
+                console.error("Members Load Failed:", e);
+                alert(`Members Load Failed: ${e.response?.data?.details || e.message}`);
+            }
+
             setLoading(false);
         } catch (err) {
-            console.error('Failed to load data:', err);
-            // Show visible error to user
-            const msg = err.response?.data?.details || err.response?.data?.error || err.message;
-            alert(`Failed to load data: ${msg}`);
+            console.error('Fatal Data Load Error:', err);
+            // Should not happen due to inner try/catch
             setLoading(false);
         }
     };
