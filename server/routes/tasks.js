@@ -161,11 +161,12 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
         category_id || null,
         assigned_to_user_id,
         req.user.id,
-        req.body.estimated_minutes || 0,
-        req.body.require_finish_time !== undefined ? req.body.require_finish_time : 1
+        // Sanitize inputs
+        parseInt(req.body.estimated_minutes) || 0,
+        req.body.require_finish_time !== undefined ? parseInt(req.body.require_finish_time) : 1
     ], function (err, resultId) {
         if (err) {
-            console.error('Task creation error:', err);
+            console.error('Task creation INSERT error:', err);
             return res.status(500).json({ error: 'Failed to create task', details: err.message });
         }
 
@@ -177,20 +178,31 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
             return res.status(500).json({ error: 'Task created but ID returned null' });
         }
 
-        // Log task creation activity
-        db.run(`
-            INSERT INTO task_activity_log (
-                org_id, task_id, user_id, action_type, new_status, notes
-            ) VALUES (?, ?, ?, 'created', ?, ?)
-        `, [
-            req.orgId,
-            taskId,
+        // Log task creation activity (Async, don't block response)
+        try {
+            db.run(`
+                INSERT INTO task_activity_log (
+                    org_id, task_id, user_id, action_type, new_status, notes
+                ) VALUES (?, ?, ?, 'created', ?, ?)
+            `, [
+                req.orgId,
+                taskId,
+                req.user.id,
+                status || 'pending',
+                'Task Created'
+            ], (logErr) => {
+                if (logErr) console.error("Task Activity Log Error:", logErr);
+            });
+        } catch (e) {
+            console.error("Task Activity Log Exception:", e);
+        }
+        taskId,
             req.user.id,
             status || 'pending',
             `Task created: ${title}`
         ]);
 
-        db.get(`
+    db.get(`
             SELECT t.*, 
                    u_assigned.name as assigned_to_name,
                    c.name as category_name
@@ -199,9 +211,9 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
             LEFT JOIN task_categories c ON t.category_id = c.id
             WHERE t.id = ?
         `, [taskId], (err, task) => {
-            res.json(task);
-        });
+        res.json(task);
     });
+});
 });
 
 // Update task
