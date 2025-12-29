@@ -196,13 +196,8 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
         } catch (e) {
             console.error("Task Activity Log Exception:", e);
         }
-        taskId,
-            req.user.id,
-            status || 'pending',
-            `Task created: ${title}`
-        ]);
-
-    db.get(`
+        // Fetch the new task to return it
+        db.get(`
             SELECT t.*, 
                    u_assigned.name as assigned_to_name,
                    c.name as category_name
@@ -211,9 +206,10 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
             LEFT JOIN task_categories c ON t.category_id = c.id
             WHERE t.id = ?
         `, [taskId], (err, task) => {
-        res.json(task);
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(201).json(task);
+        });
     });
-});
 });
 
 // Update task
