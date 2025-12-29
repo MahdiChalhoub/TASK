@@ -108,8 +108,19 @@ function initDbSqlite(database) {
             email TEXT UNIQUE NOT NULL,
             name TEXT,
             google_id TEXT UNIQUE,
+            password_hash TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        // Migration: Add password_hash if detailed auth is enabled later
+        database.all("PRAGMA table_info(users)", [], (err, rows) => {
+            if (!err && rows) {
+                const hasPassword = rows.some(r => r.name === 'password_hash');
+                if (!hasPassword) {
+                    database.run("ALTER TABLE users ADD COLUMN password_hash TEXT");
+                }
+            }
+        });
 
         database.run(`CREATE TABLE IF NOT EXISTS organization_members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -235,9 +246,30 @@ function initDbPostgres(dbWrapper) {
             email TEXT UNIQUE NOT NULL,
             name TEXT,
             google_id TEXT UNIQUE,
+            password_hash TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`,
-        `CREATE TABLE IF NOT EXISTS organization_members (
+        // ... (other tables)
+    ];
+
+    // Migration Check for Postgres
+    const checkColumnQuery = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name='password_hash';
+    `;
+
+    dbWrapper.pool.query(checkColumnQuery, (err, res) => {
+        if (!err && res.rowCount === 0) {
+            console.log("Migrating: Adding password_hash to users table (Postgres)");
+            dbWrapper.pool.query("ALTER TABLE users ADD COLUMN password_hash TEXT", (err) => {
+                if (err) console.error("Migration Failed:", err.message);
+            });
+        }
+    });
+
+    // Execute sequentially
+    `CREATE TABLE IF NOT EXISTS organization_members (
             id SERIAL PRIMARY KEY,
             org_id INTEGER NOT NULL REFERENCES organizations(id),
             user_id INTEGER NOT NULL REFERENCES users(id),
