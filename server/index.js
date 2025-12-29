@@ -142,32 +142,7 @@ taskActivityRouter.get('/test', (req, res) => {
 });
 
 // Middleware
-const requireAuth = (req, res, next) => {
-    if (!req.isAuthenticated || !req.isAuthenticated()) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    next();
-};
-
-const checkOrgMembership = (req, res, next) => {
-    const orgId = req.headers['x-org-id'] || req.body.orgId || req.query.orgId;
-    if (!orgId) {
-        return res.status(400).json({ error: 'Organization ID required' });
-    }
-
-    db.get(
-        'SELECT role FROM organization_members WHERE org_id = ? AND user_id = ?',
-        [orgId, req.user.id],
-        (err, member) => {
-            if (err || !member) {
-                return res.status(403).json({ error: 'Not a member of this organization' });
-            }
-            req.orgId = parseInt(orgId);
-            req.userRole = member.role;
-            next();
-        }
-    );
-};
+const { requireAuth, checkOrgMembership } = require('./middleware');
 
 taskActivityRouter.get('/date/:date', requireAuth, checkOrgMembership, (req, res) => {
     console.log('Task Activity Date Route Hit:', req.params.date);

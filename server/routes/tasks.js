@@ -2,34 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// Middleware to check authentication
-const requireAuth = (req, res, next) => {
-    if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: 'Not authenticated' });
-    }
-    next();
-};
-
-// Middleware to check if user is member of org
-const checkOrgMembership = (req, res, next) => {
-    const orgId = req.headers['x-org-id'] || req.query.orgId || req.body.orgId;
-
-    if (!orgId) {
-        return res.status(400).json({ error: 'Organization ID required' });
-    }
-
-    db.get('SELECT role FROM organization_members WHERE org_id = ? AND user_id = ?',
-        [orgId, req.user.id],
-        (err, member) => {
-            if (err) return res.status(500).json({ error: 'Database error' });
-            if (!member) return res.status(403).json({ error: 'Not a member of this organization' });
-
-            req.orgId = orgId;
-            req.userRole = member.role;
-            next();
-        }
-    );
-};
+const { requireAuth, checkOrgMembership } = require('../middleware');
 
 // Get tasks with filters
 router.get('/', requireAuth, checkOrgMembership, (req, res) => {
