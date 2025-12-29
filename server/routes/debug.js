@@ -45,6 +45,61 @@ router.get('/migrate', (req, res) => {
             note TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(org_id, user_id, date)
+        )`,
+        `CREATE TABLE IF NOT EXISTS leader_scope (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            leader_user_id INTEGER NOT NULL REFERENCES users(id),
+            member_user_id INTEGER NOT NULL REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(org_id, leader_user_id, member_user_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS task_categories (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            name TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            leader_user_id INTEGER REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS report_forms (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            title TEXT NOT NULL,
+            is_published BOOLEAN DEFAULT FALSE,
+            created_by_user_id INTEGER NOT NULL REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS report_fields (
+            id SERIAL PRIMARY KEY,
+            form_id INTEGER NOT NULL REFERENCES report_forms(id) ON DELETE CASCADE,
+            type TEXT NOT NULL,
+            label TEXT NOT NULL,
+            options TEXT,
+            required BOOLEAN DEFAULT FALSE,
+            sort_order INTEGER DEFAULT 0
+        )`,
+        `CREATE TABLE IF NOT EXISTS report_params (
+            id SERIAL PRIMARY KEY,
+            form_id INTEGER NOT NULL REFERENCES report_forms(id) ON DELETE CASCADE,
+            param_type TEXT NOT NULL,
+            param_key TEXT NOT NULL,
+            param_value TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS daily_reports (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            form_id INTEGER NOT NULL REFERENCES report_forms(id),
+            report_date DATE NOT NULL,
+            status TEXT CHECK(status IN ('pending', 'submitted', 'reviewed')) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS report_answers (
+             id SERIAL PRIMARY KEY,
+             report_id INTEGER NOT NULL REFERENCES daily_reports(id) ON DELETE CASCADE,
+             field_id INTEGER NOT NULL REFERENCES report_fields(id),
+             answer_text TEXT
         )`
     ];
 
