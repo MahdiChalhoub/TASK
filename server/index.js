@@ -175,7 +175,18 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/dashboards', dashboardRoutes);
 app.use('/api/forms', formRoutes);
 app.get('/api/test-direct', (req, res) => {
-    res.send('Direct working');
+    console.log('[Test Probe] Checking DB Connection...');
+    db.pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'", (err, result) => {
+        if (err) {
+            console.error('[Test Probe] FAILED:', err);
+            return res.status(500).json({ error: 'DB Connection Failed', details: err.message, stack: err.stack });
+        }
+        res.json({
+            status: 'Connected',
+            tables: result.rows.map(r => r.table_name),
+            db_url_env_exists: !!process.env.DATABASE_URL
+        });
+    });
 });
 
 console.log('Group Routes type:', typeof groupRoutes);
