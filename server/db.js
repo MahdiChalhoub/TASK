@@ -310,8 +310,11 @@ function initDbPostgres(dbWrapper) {
             reviewer_user_id INTEGER REFERENCES users(id),
             review_note TEXT,
             auto_created_from_task BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            `CREATE TABLE IF NOT EXISTS user_settings(
+        ),`
+    ];
+
+    // Add User Settings Table Creation Query
+    createTableQueries.push(`CREATE TABLE IF NOT EXISTS user_settings (
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL REFERENCES users(id),
             org_id INTEGER NOT NULL REFERENCES organizations(id),
@@ -319,36 +322,38 @@ function initDbPostgres(dbWrapper) {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, org_id)
-        )`
-    ];
+        )`);
 
-    // ... (rest of function) ... checkTasksColumnsQuery ...
+    // Execute sequentially
+    createTableQueries.forEach(q => {
+        dbWrapper.pool.query(q, (err) => {
+            if (err) console.error("PG Init Error:", err.message);
+        });
+    });
 
     // Migration Check for user_settings table (Ensure it exists if added later)
     dbWrapper.pool.query("SELECT to_regclass('public.user_settings')", (err, res) => {
         if (!err && (!res.rows[0] || !res.rows[0].to_regclass)) {
-             console.log("Migrating: Creating user_settings table");
-             dbWrapper.pool.query(`CREATE TABLE IF NOT EXISTS user_settings(
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER NOT NULL REFERENCES users(id),
-            org_id INTEGER NOT NULL REFERENCES organizations(id),
-            task_due_date_cutoff_hour INTEGER DEFAULT 15,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, org_id)
-        )`, (err) => {
-                 if (err) console.error("Migration Failed (user_settings):", err.message);
-             });
+            console.log("Migrating: Creating user_settings table");
+            dbWrapper.pool.query(`CREATE TABLE IF NOT EXISTS user_settings (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                org_id INTEGER NOT NULL REFERENCES organizations(id),
+                task_due_date_cutoff_hour INTEGER DEFAULT 15,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, org_id)
+            )`, (err) => {
+                if (err) console.error("Migration Failed (user_settings):", err.message);
+            });
         }
     });
-
-}
 
     // Migration Check for Postgres (password_hash)
     const checkPassColumnQuery = `
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'users' AND column_name = 'password_hash';
+        WHERE table_name='users' AND column_name='password_hash';
     `;
 
     dbWrapper.pool.query(checkPassColumnQuery, (err, res) => {
@@ -364,14 +369,23 @@ function initDbPostgres(dbWrapper) {
     const checkGoogleColumnQuery = `
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'users' AND column_name = 'google_id';
+        WHERE table_name='users' AND column_name='google_id';
     `;
+
+    dbWrapper.pool.query(checkGoogleColumnQuery, (err, res) => {
+        if (!err && res.rowCount === 0) {
+            console.log("Migrating: Adding google_id to users table (Postgres)");
+            dbWrapper.pool.query("ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE", (err) => {
+                if (err) console.error("Migration Failed (google_id):", err.message);
+            });
+        }
+    });
 
     // Migration Check for Postgres (tasks columns)
     const checkTasksColumnsQuery = `
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'tasks' AND column_name IN('estimated_minutes', 'require_finish_time');
+        WHERE table_name='tasks' AND column_name IN ('estimated_minutes', 'require_finish_time');
     `;
 
     dbWrapper.pool.query(checkTasksColumnsQuery, (err, res) => {
@@ -393,7 +407,6 @@ function initDbPostgres(dbWrapper) {
             }
         }
     });
-
 }
 
 module.exports = db;
