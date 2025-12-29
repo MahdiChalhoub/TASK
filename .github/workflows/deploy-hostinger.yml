@@ -47,10 +47,10 @@ jobs:
             server/virtualoffice.db
             server/virtualoffice.db-journal
             .env
-          # Upload everything from current directory
+          # Upload from root
           local-dir: ./
-          # Remote dir (root of FTP user usually maps to public_html or app folder)
-          # Leave empty to upload to root of FTP account
+          # Deploy to the specific workspace folder shown in screenshot
+          server-dir: public_html/workspace/
           
       - name: ⚠️ Post-Deploy Instructions
         run: |
