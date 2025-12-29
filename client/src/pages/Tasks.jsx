@@ -91,7 +91,9 @@ export default function Tasks() {
             const response = await taskAPI.getAll(orgId, queryFilters);
             setTasks(response.data);
         } catch (err) {
-            console.error('Failed to load tasks:', err);
+            console.error("Tasks Load Error:", err);
+            const msg = err.response?.data?.details || err.response?.data?.error || err.message;
+            alert(`Tasks Load Failed: ${msg}`); // Using alert as per existing error handling pattern
         }
     };
 
