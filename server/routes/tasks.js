@@ -121,14 +121,17 @@ router.post('/', requireAuth, checkOrgMembership, async (req, res) => {
     }
 
     try {
-        // SELF-REPAIR: Ensure Org exists to prevent FK Crashes
+        // Sanitize Org ID (Default to 1 if NaN/Missing)
+        const safeOrgId = parseInt(req.orgId) || 1;
+
+        // SELF-REPAIR: Ensure Org exists
         const checkOrg = await new Promise((resolve) => {
-            db.get('SELECT id FROM organizations WHERE id = ?', [req.orgId], (err, row) => resolve(row));
+            db.get('SELECT id FROM organizations WHERE id = ?', [safeOrgId], (err, row) => resolve(row));
         });
         if (!checkOrg) {
-            console.log(`[Auto-Fix] Org ${req.orgId} missing. Creating dummy org.`);
+            console.log(`[Auto-Fix] Org ${safeOrgId} missing. Creating dummy org.`);
             await new Promise(resolve => db.run('INSERT INTO organizations (id, name, join_code) VALUES (?, ?, ?)',
-                [req.orgId, 'Restored Org', 'auto_' + Date.now()], resolve));
+                [safeOrgId, 'Restored Org', 'auto_' + Date.now()], resolve));
         }
 
         // Sanitize Category
@@ -136,10 +139,14 @@ router.post('/', requireAuth, checkOrgMembership, async (req, res) => {
         if (finalCategoryId) {
             const catExists = await new Promise(r => db.get('SELECT 1 FROM task_categories WHERE id = ?', [finalCategoryId], (e, row) => r(!!row)));
             if (!catExists) {
-                console.log(`[Auto-Fix] Category ${finalCategoryId} missing. Setting to NULL.`);
-                finalCategoryId = null;
+                finalCategoryId = null; // Silently fallback
             }
         }
+
+        // Sanitize other integers
+        const safeEstMinutes = parseInt(req.body.estimated_minutes) || 0;
+        const safeFinishTime = parseInt(req.body.require_finish_time);
+        const finalFinishTime = !isNaN(safeFinishTime) ? safeFinishTime : 1;
 
         db.run(`
             INSERT INTO tasks (
@@ -147,17 +154,17 @@ router.post('/', requireAuth, checkOrgMembership, async (req, res) => {
                 category_id, assigned_to_user_id, created_by_user_id, estimated_minutes, require_finish_time
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-            req.orgId,
+            safeOrgId,
             title,
             description || null,
             status || 'pending',
             priority || 'medium',
             due_date || null,
             finalCategoryId,
-            assigned_to_user_id || null, // Allow null
+            assigned_to_user_id || null,
             req.user.id,
-            parseInt(req.body.estimated_minutes) || 0,
-            req.body.require_finish_time !== undefined ? parseInt(req.body.require_finish_time) : 1
+            safeEstMinutes,
+            finalFinishTime
         ], function (err, resultId) {
             if (err) {
                 console.error('Task creation INSERT error:', err);
