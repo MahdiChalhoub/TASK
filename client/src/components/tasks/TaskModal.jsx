@@ -68,7 +68,8 @@ export default function TaskModal({ task, categories, members, onSave, onClose, 
         try {
             await onSave(formData);
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to save task');
+            const msg = err.response?.data?.details || err.response?.data?.error || 'Failed to save task';
+            setError(msg);
             setSaving(false);
         }
     };
