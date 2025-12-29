@@ -199,7 +199,17 @@ router.post('/', requireAuth, checkOrgMembership, async (req, res) => {
             LEFT JOIN users u_assigned ON t.assigned_to_user_id = u_assigned.id
             LEFT JOIN task_categories c ON t.category_id = c.id
             WHERE t.id = ?
-        `, [taskId], (err, task) => {
+            `, [taskId], (err, row) => {
+                if (err) return res.status(500).json({ error: 'Failed to fetch created task', details: err.message });
+                res.status(201).json(row);
+            });
+        });
+    } catch (e) {
+        console.error("Task Creation logic error:", e);
+        res.status(500).json({ error: "Server Error", details: e.message });
+    }
+});            WHERE t.id = ?
+    `, [taskId], (err, task) => {
                 if (err) return res.status(500).json({ error: err.message });
                 res.status(201).json(task);
             });
@@ -217,7 +227,7 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         if (!task) return res.status(404).json({ error: 'Task not found' });
 
-        console.log(`Updating task ${id}: Status ${task.status} -> ${status}`);
+        console.log(`Updating task ${ id }: Status ${ task.status } -> ${ status } `);
 
         // Check permissions
         if (req.userRole === 'employee' && task.assigned_to_user_id !== req.user.id) {
@@ -256,10 +266,10 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
                 // Create time entry for the assigned user
                 db.run(`
                     INSERT INTO time_entries(
-            org_id, user_id, date, type, task_id,
-            start_at, end_at, duration_minutes,
-            auto_created_from_task, status
-        ) VALUES(?, ?, ?, 'auto_task_completion', ?, ?, ?, ?, 1, 'pending')
+        org_id, user_id, date, type, task_id,
+        start_at, end_at, duration_minutes,
+        auto_created_from_task, status
+    ) VALUES(?, ?, ?, 'auto_task_completion', ?, ?, ?, ?, 1, 'pending')
         `, [
                     req.orgId,
                     task.assigned_to_user_id,
@@ -272,22 +282,22 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
                     if (err) {
                         console.error('Error creating time entry for completed task:', err);
                     } else {
-                        console.log(`Auto - created time entry for task ${taskId}, duration: ${actualMinutes} minutes`);
+                        console.log(`Auto - created time entry for task ${ taskId }, duration: ${ actualMinutes } minutes`);
                     }
                 });
 
                 // Log completion activity
                 db.run(`
                     INSERT INTO task_activity_log(
-            org_id, task_id, user_id, action_type, old_status, new_status, actual_minutes, notes
-        ) VALUES(?, ?, ?, 'completed', ?, 'completed', ?, ?)
+        org_id, task_id, user_id, action_type, old_status, new_status, actual_minutes, notes
+    ) VALUES(?, ?, ?, 'completed', ?, 'completed', ?, ?)
                 `, [
                     req.orgId,
                     taskId,
                     req.user.id,
                     task.status,
                     actualMinutes,
-                    `Task completed with ${actualMinutes} minutes`
+                    `Task completed with ${ actualMinutes } minutes`
                 ]);
 
                 // Handle task uncompletion
@@ -302,14 +312,14 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
                 // Log uncompletion activity with reason
                 db.run(`
                     INSERT INTO task_activity_log(
-            org_id, task_id, user_id, action_type, old_status, new_status, notes
-        ) VALUES(?, ?, ?, 'uncompleted', 'completed', ?, ?)
+        org_id, task_id, user_id, action_type, old_status, new_status, notes
+    ) VALUES(?, ?, ?, 'uncompleted', 'completed', ?, ?)
                 `, [
                     req.orgId,
                     taskId,
                     req.user.id,
                     status,
-                    `Task reopened.Reason: ${reason} `
+                    `Task reopened.Reason: ${ reason } `
                 ], (err) => {
                     if (err) console.error('Error logging uncompletion activity:', err);
                 });
@@ -349,20 +359,20 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
 
         params.push(id, req.orgId);
 
-        db.run(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ? AND org_id = ? `,
+        db.run(`UPDATE tasks SET ${ updates.join(', ') } WHERE id = ? AND org_id = ? `,
             params,
             (err) => {
                 if (err) return res.status(500).json({ error: 'Failed to update task' });
 
                 db.get(`
                     SELECT t.*,
-        u_assigned.name as assigned_to_name,
-        c.name as category_name
+    u_assigned.name as assigned_to_name,
+    c.name as category_name
                     FROM tasks t
                     LEFT JOIN users u_assigned ON t.assigned_to_user_id = u_assigned.id
                     LEFT JOIN task_categories c ON t.category_id = c.id
                     WHERE t.id = ?
-        `, [id], (err, updated) => {
+    `, [id], (err, updated) => {
                     res.json(updated);
                 });
             }
@@ -386,7 +396,7 @@ router.patch('/:id/toggle', requireAuth, checkOrgMembership, (req, res) => {
         const newStatus = task.status === 'completed' ? 'pending' : 'completed';
         const completedAt = newStatus === 'completed' ? 'CURRENT_TIMESTAMP' : 'NULL';
 
-        db.run(`UPDATE tasks SET status = ?, completed_at = ${completedAt}, updated_at = CURRENT_TIMESTAMP
+        db.run(`UPDATE tasks SET status = ?, completed_at = ${ completedAt }, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ? AND org_id = ? `,
             [newStatus, id, req.orgId],
             (err) => {
