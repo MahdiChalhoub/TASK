@@ -16,8 +16,10 @@ app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
 });
+app.set('trust proxy', 1); // Enable proxy trust for Render
+
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://tsfci.com', 'https://workspace.tsfci.com'],
+    origin: true, // Allow dynamic origin for debugging
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id']
@@ -28,7 +30,8 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false, // Set to true in production with HTTPS
+        secure: true, // Required for SameSite=None
+        sameSite: 'none', // Required for Cross-Site Cookies
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
