@@ -418,22 +418,28 @@ async function initDbPostgres(dbWrapper) {
                 // We will add as NULLABLE first if referencing, then constrain?
                 // For simplicity, we use the type definition provided.
                 await dbWrapper.pool.query(`ALTER TABLE tasks ADD COLUMN ${col.name} ${col.type}`);
-            }
-        }
+                // 3a. Tasks Constraints (Relaxing for Debug/Flexibility)
+                // Make assigned_to_user_id nullable to allow creating tasks without assigning
+                try {
+                    await dbWrapper.pool.query("ALTER TABLE tasks ALTER COLUMN assigned_to_user_id DROP NOT NULL");
+                    console.log("Migrating: Made assigned_to_user_id Nullable");
+                } catch (e) {
+                    // Ignore if already nullable or other minor error
+                }
 
-        // 4. Seed Task Categories (Critical Fix)
-        // Ensure that for org_id 1 (default), a General category exists.
-        // We use INSERT ... SELECT WHERE NOT EXISTS pattern
-        await dbWrapper.pool.query(`
+                // 4. Seed Task Categories (Critical Fix)
+                // Ensure that for org_id 1 (default), a General category exists.
+                // We use INSERT ... SELECT WHERE NOT EXISTS pattern
+                await dbWrapper.pool.query(`
             INSERT INTO task_categories (org_id, name, sort_order) 
             SELECT 1, 'General', 0 
             WHERE NOT EXISTS (SELECT 1 FROM task_categories WHERE org_id = 1 AND name = 'General')
         `);
-        console.log("✅ General Category Verified.");
+                console.log("✅ General Category Verified.");
 
-    } catch (err) {
-        console.error("❌ Database Initialization Error:", err);
-    }
-}
+            } catch (err) {
+                console.error("❌ Database Initialization Error:", err);
+            }
+        }
 
-module.exports = db;
+        module.exports = db;
