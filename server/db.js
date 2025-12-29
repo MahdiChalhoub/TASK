@@ -397,17 +397,28 @@ async function initDbPostgres(dbWrapper) {
         }
 
         // 3. Tasks Columns
-        const checkTasksColumnsQuery = `SELECT column_name FROM information_schema.columns WHERE table_name='tasks' AND column_name IN ('estimated_minutes', 'require_finish_time')`;
+        const checkTasksColumnsQuery = `SELECT column_name FROM information_schema.columns WHERE table_name='tasks'`;
         const taskColsRes = await dbWrapper.pool.query(checkTasksColumnsQuery);
         const columns = taskColsRes.rows.map(r => r.column_name);
 
-        if (!columns.includes('estimated_minutes')) {
-            console.log("Migrating: Adding estimated_minutes to tasks");
-            await dbWrapper.pool.query("ALTER TABLE tasks ADD COLUMN estimated_minutes INTEGER DEFAULT 0");
-        }
-        if (!columns.includes('require_finish_time')) {
-            console.log("Migrating: Adding require_finish_time to tasks");
-            await dbWrapper.pool.query("ALTER TABLE tasks ADD COLUMN require_finish_time INTEGER DEFAULT 1");
+        const requiredColumns = [
+            { name: 'estimated_minutes', type: 'INTEGER DEFAULT 0' },
+            { name: 'require_finish_time', type: 'INTEGER DEFAULT 1' },
+            { name: 'assigned_to_user_id', type: 'INTEGER REFERENCES users(id)' },
+            { name: 'category_id', type: 'INTEGER REFERENCES task_categories(id)' },
+            { name: 'created_by_user_id', type: 'INTEGER REFERENCES users(id)' }
+        ];
+
+        for (const col of requiredColumns) {
+            if (!columns.includes(col.name)) {
+                console.log(`Migrating: Adding ${col.name} to tasks`);
+                // Note: Adding FK constraints via ALTER TABLE might need separate constraint syntax for robustness, 
+                // but simpler ADD COLUMN works for many PG versions if syntax is correct.
+                // However, adding a NOT NULL column to empty table is fine. To populated table? It fails.
+                // We will add as NULLABLE first if referencing, then constrain?
+                // For simplicity, we use the type definition provided.
+                await dbWrapper.pool.query(`ALTER TABLE tasks ADD COLUMN ${col.name} ${col.type}`);
+            }
         }
 
         // 4. Seed Task Categories (Critical Fix)
