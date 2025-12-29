@@ -250,26 +250,8 @@ function initDbPostgres(dbWrapper) {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`,
         // ... (other tables)
-    ];
-
-    // Migration Check for Postgres
-    const checkColumnQuery = `
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name='users' AND column_name='password_hash';
-    `;
-
-    dbWrapper.pool.query(checkColumnQuery, (err, res) => {
-        if (!err && res.rowCount === 0) {
-            console.log("Migrating: Adding password_hash to users table (Postgres)");
-            dbWrapper.pool.query("ALTER TABLE users ADD COLUMN password_hash TEXT", (err) => {
-                if (err) console.error("Migration Failed:", err.message);
-            });
-        }
-    });
-
-    // Execute sequentially
-    `CREATE TABLE IF NOT EXISTS organization_members (
+        ,
+        `CREATE TABLE IF NOT EXISTS organization_members (
             id SERIAL PRIMARY KEY,
             org_id INTEGER NOT NULL REFERENCES organizations(id),
             user_id INTEGER NOT NULL REFERENCES users(id),
@@ -339,6 +321,22 @@ function initDbPostgres(dbWrapper) {
         dbWrapper.pool.query(q, (err) => {
             if (err) console.error("PG Init Error:", err.message);
         });
+    });
+
+    // Migration Check for Postgres
+    const checkColumnQuery = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name='password_hash';
+    `;
+
+    dbWrapper.pool.query(checkColumnQuery, (err, res) => {
+        if (!err && res.rowCount === 0) {
+            console.log("Migrating: Adding password_hash to users table (Postgres)");
+            dbWrapper.pool.query("ALTER TABLE users ADD COLUMN password_hash TEXT", (err) => {
+                if (err) console.error("Migration Failed:", err.message);
+            });
+        }
     });
 }
 
