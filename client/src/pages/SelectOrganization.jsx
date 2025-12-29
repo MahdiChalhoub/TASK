@@ -38,7 +38,7 @@ export default function SelectOrganization() {
             setMode('select');
             loadOrganizations();
         } catch (err) {
-            setError('Failed to create organization');
+            setError(err.response?.data?.error || 'Failed to create organization');
         }
     };
 
