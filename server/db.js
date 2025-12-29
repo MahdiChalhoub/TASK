@@ -49,6 +49,7 @@ if (isProduction) {
             });
         },
         get: function (sql, params = [], callback) {
+            if (!pool) return callback(new Error("Database Pool Not Initialized"));
             let i = 0;
             const pgSql = sql.replace(/\?/g, () => `$${++i}`);
 
@@ -62,6 +63,7 @@ if (isProduction) {
             });
         },
         all: function (sql, params = [], callback) {
+            if (!pool) return callback(new Error("Database Pool Not Initialized"));
             let i = 0;
             const pgSql = sql.replace(/\?/g, () => `$${++i}`);
 
