@@ -59,6 +59,9 @@ export default function Tasks() {
             setLoading(false);
         } catch (err) {
             console.error('Failed to load data:', err);
+            // Show visible error to user
+            const msg = err.response?.data?.details || err.response?.data?.error || err.message;
+            alert(`Failed to load data: ${msg}`);
             setLoading(false);
         }
     };
