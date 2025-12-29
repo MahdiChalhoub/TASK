@@ -346,14 +346,31 @@ function initDbPostgres(dbWrapper) {
         WHERE table_name='users' AND column_name='google_id';
     `;
 
-    dbWrapper.pool.query(checkGoogleColumnQuery, (err, res) => {
-        if (!err && res.rowCount === 0) {
-            console.log("Migrating: Adding google_id to users table (Postgres)");
-            dbWrapper.pool.query("ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE", (err) => {
-                if (err) console.error("Migration Failed (google_id):", err.message);
-            });
+    // Migration Check for Postgres (tasks columns)
+    const checkTasksColumnsQuery = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='tasks' AND column_name IN ('estimated_minutes', 'require_finish_time');
+    `;
+
+    dbWrapper.pool.query(checkTasksColumnsQuery, (err, res) => {
+        if (!err) {
+            const columns = res.rows.map(r => r.column_name);
+
+            if (!columns.includes('estimated_minutes')) {
+                console.log("Migrating: Adding estimated_minutes to tasks table");
+                dbWrapper.pool.query("ALTER TABLE tasks ADD COLUMN estimated_minutes INTEGER DEFAULT 0", (err) => {
+                    if (err) console.error("Migration Failed (estimated_minutes):", err.message);
+                });
+            }
+
+            if (!columns.includes('require_finish_time')) {
+                console.log("Migrating: Adding require_finish_time to tasks table");
+                dbWrapper.pool.query("ALTER TABLE tasks ADD COLUMN require_finish_time INTEGER DEFAULT 1", (err) => {
+                    if (err) console.error("Migration Failed (require_finish_time):", err.message);
+                });
+            }
         }
     });
-}
 
-module.exports = db;
+    module.exports = db;
