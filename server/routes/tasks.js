@@ -68,6 +68,7 @@ router.get('/', requireAuth, checkOrgMembership, (req, res) => {
     }
 
     query += ' ORDER BY t.created_at DESC';
+    */
 
     db.all(query, params, (err, rows) => {
         if (err) {
