@@ -21,9 +21,9 @@ const checkOrgMembership = (req, res, next) => {
         return res.status(400).json({ error: 'Organization ID required' });
     }
 
+    // Sanitize Org ID
     const orgId = parseInt(orgIdRaw, 10);
     if (isNaN(orgId)) {
-        console.error('[Middleware] Invalid Org ID:', orgIdRaw);
         return res.status(400).json({ error: 'Invalid Organization ID' });
     }
 
@@ -35,33 +35,12 @@ const checkOrgMembership = (req, res, next) => {
         return res.status(401).json({ error: 'User context missing' });
     }
 
-    // --- DEBUG BYPASS START ---
-    // Manually approve for debugging 500 error
-    console.log('[Middleware] DEBUG BYPASS: Approving membership automatically.');
+
     req.orgId = orgId;
-    req.userRole = 'owner'; // Assume owner for now
+    req.userRole = member.role;
+    console.log(`[Middleware] Success. Org: ${orgId}, Role: ${member.role}`);
     next();
-    return;
-// --- DEBUG BYPASS END ---
-
-/*
-db.get('SELECT role FROM organization_members WHERE org_id = ? AND user_id = ?',
-    [orgId, userId],
-    (err, member) => {
-        if (err) {
-            console.error("[Middleware] DB Error in checkOrgMembership:", err);
-            return res.status(500).json({ error: 'Database error checking membership', details: err.message });
-        }
-        if (!member) {
-            console.error(`[Middleware] Access Denied. User ${userId} is not in Org ${orgId}`);
-            return res.status(403).json({ error: 'Not a member of this organization' });
-        }
-
-        req.orgId = orgId;
-        req.userRole = member.role;
-        console.log(`[Middleware] Success. Org: ${orgId}, Role: ${member.role}`);
-        next();
-    }
+}
 );
 };
 
