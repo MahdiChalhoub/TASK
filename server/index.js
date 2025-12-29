@@ -17,8 +17,10 @@ app.use((req, res, next) => {
     next();
 });
 app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true
+    origin: ['http://localhost:5173', 'https://tsfci.com', 'https://workspace.tsfci.com'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-org-id']
 }));
 app.use(bodyParser.json());
 app.use(session({
