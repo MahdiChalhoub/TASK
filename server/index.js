@@ -168,29 +168,11 @@ app.get('/api', (req, res) => {
     res.send('Virtual Office API is running');
 });
 
-const path = require('path');
-
-// Serve static files from the React app
-// Adjust the path to verify where 'client/dist' will be relative to 'server/index.js'
-// In development, this might not exist yet, but for production it's required.
-app.use(express.static(path.join(__dirname, '../client/dist')));
-
 app.get('/api', (req, res) => {
     res.send('Virtual Office API is running');
 });
 
-// The "catchall" handler: for any request that doesn't
-// match one above, send back React's index.html file.
-app.get('*', (req, res) => {
-    const indexPath = path.join(__dirname, '../client/dist/index.html');
-    // Check if file exists, or send API running message if in dev without build
-    const fs = require('fs');
-    if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
-        res.send('Virtual Office API is running. (Client build not found - run npm run build in client/)');
-    }
-});
+// app.use(express.static(...)) and app.get('*') removed for API-only deployment
 
 
 
