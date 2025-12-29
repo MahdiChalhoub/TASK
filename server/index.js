@@ -134,39 +134,9 @@ const settingsRoutes = require('./routes/settings');
 const taskActivityRoutes = require('./routes/task-activity');
 const debugRoutes = require('./routes/debug'); // Added this line
 
-// Inline Task Activity Routes for Debugging
-const taskActivityRouter = express.Router();
-
-taskActivityRouter.get('/test', (req, res) => {
-    res.send('Activity Router Working');
-});
-
-// Middleware
-const { requireAuth, checkOrgMembership } = require('./middleware');
-
-taskActivityRouter.get('/date/:date', requireAuth, checkOrgMembership, (req, res) => {
-    console.log('Task Activity Date Route Hit:', req.params.date);
-    const { date } = req.params;
-    const query = `
-        SELECT tal.*, t.title as task_title, u.name as user_name
-        FROM task_activity_log tal
-        LEFT JOIN tasks t ON tal.task_id = t.id
-        LEFT JOIN users u ON tal.user_id = u.id
-        WHERE tal.org_id = ? AND DATE(tal.created_at) = ?
-        ORDER BY tal.created_at DESC
-    `;
-    db.all(query, [req.orgId, date], (err, activities) => {
-        if (err) {
-            console.error('Error:', err);
-            return res.status(500).json({ error: 'Failed' });
-        }
-        res.json(activities);
-    });
-});
-
 app.use('/api/auth', authRoutes);
-app.use('/api/activities', taskActivityRoutes);
-app.use('/api/debug', debugRoutes); // Renamed and moved up
+app.use('/api/activity', taskActivityRoutes); // Use the file-based route
+app.use('/api/debug', debugRoutes);
 app.use('/api/orgs', orgRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/categories', categoryRoutes);
