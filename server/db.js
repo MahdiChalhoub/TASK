@@ -21,6 +21,7 @@ if (isProduction) {
         pool,
         serialize: (cb) => cb(), // No-op for PG
         run: function (sql, params = [], callback) {
+            if (!pool) return callback(new Error("Database Pool Not Initialized"));
             // Convert ? to $1, $2...
             let i = 0;
             const pgSql = sql.replace(/\?/g, () => `$${++i}`);
