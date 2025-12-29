@@ -38,18 +38,14 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # Exclude heavy/sensitive folders
+          # Exclude git internal files just in case
           exclude: |
             **/.git*
             **/.git*/**
             **/.github/**
-            **/node_modules/**
-            server/virtualoffice.db
-            server/virtualoffice.db-journal
-            .env
-          # Upload from root
-          local-dir: ./
-          # Deploy to the specific workspace folder shown in screenshot
+          # Deploy ONLY the React Build output
+          local-dir: client/dist/
+          # Deploy to the specific workspace folder
           server-dir: public_html/workspace/
           
       - name: ⚠️ Post-Deploy Instructions
