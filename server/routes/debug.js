@@ -8,7 +8,44 @@ router.get('/migrate', (req, res) => {
         "ALTER TABLE tasks ADD COLUMN require_finish_time INTEGER DEFAULT 1",
         "CREATE TABLE IF NOT EXISTS user_settings (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, org_id INTEGER NOT NULL, task_due_date_cutoff_hour INTEGER DEFAULT 15, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, org_id))",
         "ALTER TABLE users ADD COLUMN password_hash TEXT",
-        "ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE"
+        "ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE",
+        `CREATE TABLE IF NOT EXISTS task_activity_log (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            task_id INTEGER NOT NULL REFERENCES tasks(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            action_type TEXT NOT NULL,
+            old_status TEXT,
+            new_status TEXT,
+            actual_minutes INTEGER,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS time_entries (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            date DATE NOT NULL,
+            type TEXT CHECK(type IN ('day_session', 'task_timer', 'manual', 'auto_task_completion')) NOT NULL,
+            task_id INTEGER REFERENCES tasks(id),
+            start_at TIMESTAMP,
+            end_at TIMESTAMP,
+            duration_minutes INTEGER,
+            status TEXT CHECK(status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+            reviewer_user_id INTEGER REFERENCES users(id),
+            review_note TEXT,
+            auto_created_from_task BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS holidays (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            date DATE NOT NULL,
+            note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(org_id, user_id, date)
+        )`
     ];
 
     let results = [];
