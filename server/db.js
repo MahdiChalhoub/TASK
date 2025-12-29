@@ -74,9 +74,6 @@ if (isProduction) {
     };
 
     // Initialize Schema for Postgres
-    // Note: We need to convert SQLite DDL to Postgres DDL dynamically or just run a PG-specific init
-    // For simplicity, we assume the user will run a migration script or we do a basic check.
-    // Given the complexity, we'll try to run a simplified init if tables don't exist.
     initDbPostgres(db);
 
 } else {
@@ -93,8 +90,6 @@ if (isProduction) {
 }
 
 function initDbSqlite(database) {
-    // ... exact copy of previous initDb content ...
-    // Using requirement to reuse code, I'll put the schema creation here
     database.serialize(() => {
         database.run(`CREATE TABLE IF NOT EXISTS organizations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -210,9 +205,6 @@ function initDbSqlite(database) {
             UNIQUE(org_id, user_id, date)
         )`);
 
-        // Report Forms and others omitted for brevity in this specific patch pass, 
-        // assuming user won't hit them immediately or we add them all?
-        // Let's add the Activity Log which is critical for recent feature
         database.run(`CREATE TABLE IF NOT EXISTS task_activity_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             org_id INTEGER NOT NULL,
@@ -231,9 +223,8 @@ function initDbSqlite(database) {
     });
 }
 
-function initDbPostgres(dbWrapper) {
+async function initDbPostgres(dbWrapper) {
     // Postgres DDL
-    // We convert SQLite DDL to PG DDL
     const createTableQueries = [
         `CREATE TABLE IF NOT EXISTS organizations (
             id SERIAL PRIMARY KEY,
@@ -249,8 +240,6 @@ function initDbPostgres(dbWrapper) {
             password_hash TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`,
-        // ... (other tables)
-        ,
         `CREATE TABLE IF NOT EXISTS organization_members (
             id SERIAL PRIMARY KEY,
             org_id INTEGER NOT NULL REFERENCES organizations(id),
@@ -258,6 +247,14 @@ function initDbPostgres(dbWrapper) {
             role TEXT CHECK(role IN ('owner', 'admin', 'leader', 'employee')) DEFAULT 'employee',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(org_id, user_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS leader_scope (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            leader_user_id INTEGER NOT NULL REFERENCES users(id),
+            member_user_id INTEGER NOT NULL REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(org_id, leader_user_id, member_user_id)
         )`,
         `CREATE TABLE IF NOT EXISTS task_categories (
             id SERIAL PRIMARY KEY,
@@ -279,10 +276,10 @@ function initDbPostgres(dbWrapper) {
             assigned_to_user_id INTEGER NOT NULL REFERENCES users(id),
             created_by_user_id INTEGER NOT NULL REFERENCES users(id),
             estimated_minutes INTEGER DEFAULT 0,
+            require_finish_time INTEGER DEFAULT 1,
             completed_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            require_finish_time INTEGER DEFAULT 1
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`,
         `CREATE TABLE IF NOT EXISTS task_activity_log (
             id SERIAL PRIMARY KEY,
@@ -310,11 +307,9 @@ function initDbPostgres(dbWrapper) {
             reviewer_user_id INTEGER REFERENCES users(id),
             review_note TEXT,
             auto_created_from_task BOOLEAN DEFAULT FALSE,
-        ),`
-    ];
-
-    // Add User Settings Table Creation Query
-    createTableQueries.push(`CREATE TABLE IF NOT EXISTS user_settings (
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS user_settings (
             id SERIAL PRIMARY KEY,
             user_id INTEGER NOT NULL REFERENCES users(id),
             org_id INTEGER NOT NULL REFERENCES organizations(id),
@@ -322,91 +317,109 @@ function initDbPostgres(dbWrapper) {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, org_id)
-        )`);
+        )`,
+        `CREATE TABLE IF NOT EXISTS holidays (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            date DATE NOT NULL,
+            note TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(org_id, user_id, date)
+        )`,
+        `CREATE TABLE IF NOT EXISTS report_forms (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            title TEXT NOT NULL,
+            is_published BOOLEAN DEFAULT FALSE,
+            created_by_user_id INTEGER NOT NULL REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS report_fields (
+            id SERIAL PRIMARY KEY,
+            form_id INTEGER NOT NULL REFERENCES report_forms(id) ON DELETE CASCADE,
+            type TEXT NOT NULL,
+            label TEXT NOT NULL,
+            options TEXT,
+            required BOOLEAN DEFAULT FALSE,
+            sort_order INTEGER DEFAULT 0
+        )`,
+        `CREATE TABLE IF NOT EXISTS report_params (
+            id SERIAL PRIMARY KEY,
+            form_id INTEGER NOT NULL REFERENCES report_forms(id) ON DELETE CASCADE,
+            param_type TEXT NOT NULL,
+            param_key TEXT NOT NULL,
+            param_value TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS daily_reports (
+            id SERIAL PRIMARY KEY,
+            org_id INTEGER NOT NULL REFERENCES organizations(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            form_id INTEGER NOT NULL REFERENCES report_forms(id),
+            report_date DATE NOT NULL,
+            status TEXT CHECK(status IN ('pending', 'submitted', 'reviewed')) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS report_answers (
+             id SERIAL PRIMARY KEY,
+             report_id INTEGER NOT NULL REFERENCES daily_reports(id) ON DELETE CASCADE,
+             field_id INTEGER NOT NULL REFERENCES report_fields(id),
+             answer_text TEXT
+        )`
+    ];
 
-    // Execute sequentially
-    createTableQueries.forEach(q => {
-        dbWrapper.pool.query(q, (err) => {
-            if (err) console.error("PG Init Error:", err.message);
-        });
-    });
+    console.log("🛠️ Starting Sequential Database Initialization...");
 
-    // Migration Check for user_settings table (Ensure it exists if added later)
-    dbWrapper.pool.query("SELECT to_regclass('public.user_settings')", (err, res) => {
-        if (!err && (!res.rows[0] || !res.rows[0].to_regclass)) {
-            console.log("Migrating: Creating user_settings table");
-            dbWrapper.pool.query(`CREATE TABLE IF NOT EXISTS user_settings (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                org_id INTEGER NOT NULL REFERENCES organizations(id),
-                task_due_date_cutoff_hour INTEGER DEFAULT 15,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, org_id)
-            )`, (err) => {
-                if (err) console.error("Migration Failed (user_settings):", err.message);
-            });
+    try {
+        for (const query of createTableQueries) {
+            await dbWrapper.pool.query(query);
         }
-    });
+        console.log("✅ All tables initialized successfully.");
 
-    // Migration Check for Postgres (password_hash)
-    const checkPassColumnQuery = `
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name='users' AND column_name='password_hash';
-    `;
-
-    dbWrapper.pool.query(checkPassColumnQuery, (err, res) => {
-        if (!err && res.rowCount === 0) {
-            console.log("Migrating: Adding password_hash to users table (Postgres)");
-            dbWrapper.pool.query("ALTER TABLE users ADD COLUMN password_hash TEXT", (err) => {
-                if (err) console.error("Migration Failed (password_hash):", err.message);
-            });
+        // Migration Checks
+        // 1. Password Hash
+        const checkPassColumnQuery = `SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='password_hash'`;
+        const passRes = await dbWrapper.pool.query(checkPassColumnQuery);
+        if (passRes.rowCount === 0) {
+            console.log("Migrating: Adding password_hash to users");
+            await dbWrapper.pool.query("ALTER TABLE users ADD COLUMN password_hash TEXT");
         }
-    });
 
-    // Migration Check for Postgres (google_id)
-    const checkGoogleColumnQuery = `
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name='users' AND column_name='google_id';
-    `;
-
-    dbWrapper.pool.query(checkGoogleColumnQuery, (err, res) => {
-        if (!err && res.rowCount === 0) {
-            console.log("Migrating: Adding google_id to users table (Postgres)");
-            dbWrapper.pool.query("ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE", (err) => {
-                if (err) console.error("Migration Failed (google_id):", err.message);
-            });
+        // 2. Google ID
+        const checkGoogleColumnQuery = `SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='google_id'`;
+        const googleRes = await dbWrapper.pool.query(checkGoogleColumnQuery);
+        if (googleRes.rowCount === 0) {
+            console.log("Migrating: Adding google_id to users");
+            await dbWrapper.pool.query("ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE");
         }
-    });
 
-    // Migration Check for Postgres (tasks columns)
-    const checkTasksColumnsQuery = `
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name='tasks' AND column_name IN ('estimated_minutes', 'require_finish_time');
-    `;
+        // 3. Tasks Columns
+        const checkTasksColumnsQuery = `SELECT column_name FROM information_schema.columns WHERE table_name='tasks' AND column_name IN ('estimated_minutes', 'require_finish_time')`;
+        const taskColsRes = await dbWrapper.pool.query(checkTasksColumnsQuery);
+        const columns = taskColsRes.rows.map(r => r.column_name);
 
-    dbWrapper.pool.query(checkTasksColumnsQuery, (err, res) => {
-        if (!err) {
-            const columns = res.rows.map(r => r.column_name);
-
-            if (!columns.includes('estimated_minutes')) {
-                console.log("Migrating: Adding estimated_minutes to tasks table");
-                dbWrapper.pool.query("ALTER TABLE tasks ADD COLUMN estimated_minutes INTEGER DEFAULT 0", (err) => {
-                    if (err) console.error("Migration Failed (estimated_minutes):", err.message);
-                });
-            }
-
-            if (!columns.includes('require_finish_time')) {
-                console.log("Migrating: Adding require_finish_time to tasks table");
-                dbWrapper.pool.query("ALTER TABLE tasks ADD COLUMN require_finish_time INTEGER DEFAULT 1", (err) => {
-                    if (err) console.error("Migration Failed (require_finish_time):", err.message);
-                });
-            }
+        if (!columns.includes('estimated_minutes')) {
+            console.log("Migrating: Adding estimated_minutes to tasks");
+            await dbWrapper.pool.query("ALTER TABLE tasks ADD COLUMN estimated_minutes INTEGER DEFAULT 0");
         }
-    });
+        if (!columns.includes('require_finish_time')) {
+            console.log("Migrating: Adding require_finish_time to tasks");
+            await dbWrapper.pool.query("ALTER TABLE tasks ADD COLUMN require_finish_time INTEGER DEFAULT 1");
+        }
+
+        // 4. Seed Task Categories (Critical Fix)
+        // Ensure that for org_id 1 (default), a General category exists.
+        // We use INSERT ... SELECT WHERE NOT EXISTS pattern
+        await dbWrapper.pool.query(`
+            INSERT INTO task_categories (org_id, name, sort_order) 
+            SELECT 1, 'General', 0 
+            WHERE NOT EXISTS (SELECT 1 FROM task_categories WHERE org_id = 1 AND name = 'General')
+        `);
+        console.log("✅ General Category Verified.");
+
+    } catch (err) {
+        console.error("❌ Database Initialization Error:", err);
+    }
 }
 
 module.exports = db;
