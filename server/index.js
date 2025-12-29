@@ -38,6 +38,9 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+const LocalStrategy = require('passport-local').Strategy;
+const bcrypt = require('bcryptjs');
+
 // Passport configuration
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID || 'your-client-id',
@@ -66,6 +69,30 @@ passport.use(new GoogleStrategy({
                 }
             );
         }
+    });
+}));
+
+passport.use(new LocalStrategy({
+    usernameField: 'email',
+    passwordField: 'password'
+}, (email, password, done) => {
+    db.get('SELECT * FROM users WHERE email = ?', [email], (err, user) => {
+        if (err) return done(err);
+        if (!user) return done(null, false, { message: 'Incorrect email.' });
+
+        // If user exists but has no password (e.g. Google user attempting password login)
+        if (!user.password_hash) {
+            return done(null, false, { message: 'This account uses Google Login. Please sign in with Google.' });
+        }
+
+        bcrypt.compare(password, user.password_hash, (err, isMatch) => {
+            if (err) return done(err);
+            if (isMatch) {
+                return done(null, user);
+            } else {
+                return done(null, false, { message: 'Incorrect password.' });
+            }
+        });
     });
 }));
 
