@@ -64,9 +64,6 @@ const checkOrgMembership = (req, res, next) => {
         }
     );
     */
-}
-);
 };
 
 module.exports = { requireAuth, checkOrgMembership };
-```
