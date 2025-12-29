@@ -1,0 +1,58 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: 🚀 Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: 📦 Install & Build Frontend
+        run: |
+          cd client
+          npm install
+          npm run build
+          cd ..
+
+      - name: 🧹 Clean up Frontend Node Modules
+        # We delete client/node_modules to save upload time/space
+        # We keep client/dist
+        run: rm -rf client/node_modules
+
+      - name: 📂 Sync files via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          # Exclude heavy/sensitive folders
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/node_modules/**
+            server/virtualoffice.db
+            server/virtualoffice.db-journal
+            .env
+          # Upload everything from current directory
+          local-dir: ./
+          # Remote dir (root of FTP user usually maps to public_html or app folder)
+          # Leave empty to upload to root of FTP account
+          
+      - name: ⚠️ Post-Deploy Instructions
+        run: |
+          echo "✅ Files uploaded successfully!"
+          echo "👉 FINAL STEP: Log in to Hostinger hPanel, go to your Node.js App, and click 'NPM Install' and then 'Restart' to install server dependencies and start the app."
