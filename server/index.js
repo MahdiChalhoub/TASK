@@ -175,16 +175,31 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/dashboards', dashboardRoutes);
 app.use('/api/forms', formRoutes);
 app.get('/api/test-direct', (req, res) => {
-    console.log('[Test Probe] Checking DB Connection...');
-    db.pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'", (err, result) => {
-        if (err) {
-            console.error('[Test Probe] FAILED:', err);
-            return res.status(500).json({ error: 'DB Connection Failed', details: err.message, stack: err.stack });
-        }
-        res.json({
-            status: 'Connected',
-            tables: result.rows.map(r => r.table_name),
-            db_url_env_exists: !!process.env.DATABASE_URL
+    console.log('[Test Probe] Checking DB Schema...');
+    const results = {};
+
+    // 1. Get Table List
+    db.pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'", (err, tableRes) => {
+        if (err) return res.status(500).json({ step: 'tables', error: err.message });
+        results.tables = tableRes.rows.map(r => r.table_name);
+
+        // 2. Get Tasks Columns
+        db.pool.query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name='tasks'", (err, colRes) => {
+            if (err) return res.status(500).json({ step: 'columns', error: err.message });
+            results.tasks_columns = colRes.rows.map(r => r.column_name);
+
+            // 3. Try Basic Select
+            db.pool.query("SELECT * FROM tasks LIMIT 1", (err, selectRes) => {
+                if (err) return res.status(500).json({ step: 'select_test', error: err.message });
+                results.select_test = 'Success';
+                results.row_count = selectRes.rowCount;
+
+                // 4. Check specific columns existence
+                results.has_estimated = results.tasks_columns.includes('estimated_minutes');
+                results.has_require_finish = results.tasks_columns.includes('require_finish_time');
+
+                res.json(results);
+            });
         });
     });
 });
