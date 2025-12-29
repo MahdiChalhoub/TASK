@@ -21,6 +21,8 @@ jobs:
           node-version: '18'
 
       - name: 📦 Install & Build Frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
           cd client
           npm install
