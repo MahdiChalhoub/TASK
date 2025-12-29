@@ -20,7 +20,8 @@ router.post('/', requireAuth, (req, res) => {
         [name, joinCode],
         function (err) {
             if (err) {
-                return res.status(500).json({ error: 'Failed to create organization' });
+                console.error('Create Org Error:', err);
+                return res.status(500).json({ error: 'Failed to create organization: ' + err.message });
             }
 
             const orgId = this.lastID;
