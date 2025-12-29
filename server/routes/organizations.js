@@ -108,13 +108,19 @@ router.get('/:id', requireAuth, (req, res) => {
 
 // Get organization members
 router.get('/:id/members', requireAuth, (req, res) => {
-    const orgId = req.params.id;
+    const orgIdRaw = req.params.id;
+    const orgId = parseInt(orgIdRaw, 10);
+
+    if (isNaN(orgId)) return res.status(400).json({ error: 'Invalid Org ID' });
 
     // Check if user is member
     db.get('SELECT role FROM organization_members WHERE org_id = ? AND user_id = ?',
         [orgId, req.user.id],
         (err, member) => {
-            if (err) return res.status(500).json({ error: 'Database error' });
+            if (err) {
+                console.error("Members Check DB Error:", err);
+                return res.status(500).json({ error: 'Database error', details: err.message });
+            }
             if (!member) return res.status(403).json({ error: 'Not a member' });
 
             db.all(`
@@ -124,7 +130,10 @@ router.get('/:id/members', requireAuth, (req, res) => {
                 WHERE om.org_id = ?
                 ORDER BY om.created_at
             `, [orgId], (err, members) => {
-                if (err) return res.status(500).json({ error: 'Database error' });
+                if (err) {
+                    console.error("Fetch Members DB Error:", err);
+                    return res.status(500).json({ error: 'Database error', details: err.message });
+                }
                 res.json(members);
             });
         }
