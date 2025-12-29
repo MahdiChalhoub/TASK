@@ -214,13 +214,7 @@ router.post('/', requireAuth, checkOrgMembership, async (req, res) => {
         console.error("Task Creation logic error:", e);
         res.status(500).json({ error: "Server Error", details: e.message });
     }
-});            WHERE t.id = ?
-    `, [taskId], (err, task) => {
-                if (err) return res.status(500).json({ error: err.message });
-                res.status(201).json(task);
-            });
-        });
-    });
+});
 
 // Update task
 router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
@@ -233,7 +227,7 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         if (!task) return res.status(404).json({ error: 'Task not found' });
 
-        console.log(`Updating task ${ id }: Status ${ task.status } -> ${ status } `);
+        console.log(`Updating task ${id}: Status ${task.status} -> ${status} `);
 
         // Check permissions
         if (req.userRole === 'employee' && task.assigned_to_user_id !== req.user.id) {
@@ -288,7 +282,7 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
                     if (err) {
                         console.error('Error creating time entry for completed task:', err);
                     } else {
-                        console.log(`Auto - created time entry for task ${ taskId }, duration: ${ actualMinutes } minutes`);
+                        console.log(`Auto - created time entry for task ${taskId}, duration: ${actualMinutes} minutes`);
                     }
                 });
 
@@ -303,7 +297,7 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
                     req.user.id,
                     task.status,
                     actualMinutes,
-                    `Task completed with ${ actualMinutes } minutes`
+                    `Task completed with ${actualMinutes} minutes`
                 ]);
 
                 // Handle task uncompletion
@@ -325,7 +319,7 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
                     taskId,
                     req.user.id,
                     status,
-                    `Task reopened.Reason: ${ reason } `
+                    `Task reopened.Reason: ${reason} `
                 ], (err) => {
                     if (err) console.error('Error logging uncompletion activity:', err);
                 });
@@ -365,7 +359,7 @@ router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
 
         params.push(id, req.orgId);
 
-        db.run(`UPDATE tasks SET ${ updates.join(', ') } WHERE id = ? AND org_id = ? `,
+        db.run(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ? AND org_id = ? `,
             params,
             (err) => {
                 if (err) return res.status(500).json({ error: 'Failed to update task' });
@@ -402,7 +396,7 @@ router.patch('/:id/toggle', requireAuth, checkOrgMembership, (req, res) => {
         const newStatus = task.status === 'completed' ? 'pending' : 'completed';
         const completedAt = newStatus === 'completed' ? 'CURRENT_TIMESTAMP' : 'NULL';
 
-        db.run(`UPDATE tasks SET status = ?, completed_at = ${ completedAt }, updated_at = CURRENT_TIMESTAMP
+        db.run(`UPDATE tasks SET status = ?, completed_at = ${completedAt}, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ? AND org_id = ? `,
             [newStatus, id, req.orgId],
             (err) => {
