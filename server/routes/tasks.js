@@ -166,7 +166,7 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
     ], function (err) {
         if (err) {
             console.error('Task creation error:', err);
-            return res.status(500).json({ error: 'Failed to create task' });
+            return res.status(500).json({ error: 'Failed to create task', details: err.message });
         }
 
         const taskId = this.lastID;
