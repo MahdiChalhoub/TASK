@@ -42,7 +42,10 @@ if (isProduction) {
                     changes: res.rowCount
                 };
 
-                if (callback) callback.call(context, null);
+                if (callback) {
+                    // Pass lastID as second arg just in case 'this' fails
+                    callback.call(context, null, context.lastID);
+                }
             });
         },
         get: function (sql, params = [], callback) {

@@ -163,13 +163,19 @@ router.post('/', requireAuth, checkOrgMembership, (req, res) => {
         req.user.id,
         req.body.estimated_minutes || 0,
         req.body.require_finish_time !== undefined ? req.body.require_finish_time : 1
-    ], function (err) {
+    ], function (err, resultId) {
         if (err) {
             console.error('Task creation error:', err);
             return res.status(500).json({ error: 'Failed to create task', details: err.message });
         }
 
-        const taskId = this.lastID;
+        // Use resultId if available (from modified db.js), else fallback to this.lastID
+        const taskId = resultId || this.lastID;
+
+        if (!taskId) {
+            console.error('Task ID mismatch: ID is null after insert');
+            return res.status(500).json({ error: 'Task created but ID returned null' });
+        }
 
         // Log task creation activity
         db.run(`
