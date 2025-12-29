@@ -190,7 +190,8 @@ taskActivityRouter.get('/date/:date', requireAuth, checkOrgMembership, (req, res
 });
 
 app.use('/api/auth', authRoutes);
-app.use('/api/activity', taskActivityRouter); // Renamed and moved up
+app.use('/api/activities', taskActivityRoutes);
+app.use('/api/debug', debugRoutes); // Renamed and moved up
 app.use('/api/orgs', orgRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/categories', categoryRoutes);
