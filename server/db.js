@@ -323,18 +323,34 @@ function initDbPostgres(dbWrapper) {
         });
     });
 
-    // Migration Check for Postgres
-    const checkColumnQuery = `
+    // Migration Check for Postgres (password_hash)
+    const checkPassColumnQuery = `
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_name='users' AND column_name='password_hash';
     `;
 
-    dbWrapper.pool.query(checkColumnQuery, (err, res) => {
+    dbWrapper.pool.query(checkPassColumnQuery, (err, res) => {
         if (!err && res.rowCount === 0) {
             console.log("Migrating: Adding password_hash to users table (Postgres)");
             dbWrapper.pool.query("ALTER TABLE users ADD COLUMN password_hash TEXT", (err) => {
-                if (err) console.error("Migration Failed:", err.message);
+                if (err) console.error("Migration Failed (password_hash):", err.message);
+            });
+        }
+    });
+
+    // Migration Check for Postgres (google_id)
+    const checkGoogleColumnQuery = `
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name='google_id';
+    `;
+
+    dbWrapper.pool.query(checkGoogleColumnQuery, (err, res) => {
+        if (!err && res.rowCount === 0) {
+            console.log("Migrating: Adding google_id to users table (Postgres)");
+            dbWrapper.pool.query("ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE", (err) => {
+                if (err) console.error("Migration Failed (google_id):", err.message);
             });
         }
     });
