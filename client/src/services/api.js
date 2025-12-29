@@ -12,6 +12,8 @@ const api = axios.create({
 
 // Auth APIs
 export const authAPI = {
+    login: (credentials) => api.post('/auth/login', credentials),
+    signup: (userData) => api.post('/auth/signup', userData),
     devLogin: (email) => api.post('/auth/dev-login', { email }),
     getMe: () => api.get('/auth/me'),
     logout: () => api.post('/auth/logout'),

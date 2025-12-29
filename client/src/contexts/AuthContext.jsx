@@ -30,6 +30,26 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const login = async (email, password) => {
+        try {
+            const response = await authAPI.login({ email, password });
+            setUser(response.data);
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    const signup = async (name, email, password) => {
+        try {
+            const response = await authAPI.signup({ name, email, password });
+            setUser(response.data);
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    };
+
     const devLogin = async (email) => {
         try {
             const response = await authAPI.devLogin(email);
@@ -52,6 +72,8 @@ export const AuthProvider = ({ children }) => {
     const value = {
         user,
         loading,
+        login,
+        signup,
         devLogin,
         logout,
         checkAuth
