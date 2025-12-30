@@ -7,12 +7,14 @@ export default function TaskModal({ task, categories, members, onSave, onClose, 
     const [formData, setFormData] = useState({
         title: task?.title || '',
         description: task?.description || '',
+        type: task?.type || 'normal', // fast, normal, action
         status: task?.status || 'pending',
         priority: task?.priority || 'medium',
         due_date: task?.due_date || '',
         category_id: task?.category_id || '',
         assigned_to_user_id: task?.assigned_to_user_id || '',
         estimated_minutes: task?.estimated_minutes || 0,
+        is_alarmed: task?.is_alarmed || false,
         require_finish_time: task?.require_finish_time !== undefined ? task.require_finish_time : true
     });
     const [saving, setSaving] = useState(false);
@@ -93,11 +95,88 @@ export default function TaskModal({ task, categories, members, onSave, onClose, 
                             type="text"
                             value={formData.title}
                             onChange={(e) => handleChange('title', e.target.value)}
-                            placeholder="Enter task title"
+                            placeholder="What need to be done?"
                             required
                             autoFocus
                         />
                     </div>
+
+                    {/* Task Type Selector */}
+                    <div className="form-group">
+                        <label>Task Type</label>
+                        <div className="task-type-grid">
+                            <button
+                                type="button"
+                                className={`type-card ${formData.type === 'fast' ? 'active fast' : ''}`}
+                                onClick={() => handleChange('type', 'fast')}
+                            >
+                                <span className="icon">⚡</span>
+                                <div className="info">
+                                    <strong>Fast Task</strong>
+                                    <small>&le; 1 min • Auto-Log</small>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                className={`type-card ${formData.type === 'normal' ? 'active normal' : ''}`}
+                                onClick={() => handleChange('type', 'normal')}
+                            >
+                                <span className="icon">📅</span>
+                                <div className="info">
+                                    <strong>Normal</strong>
+                                    <small>Planned • Tracked</small>
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                className={`type-card ${formData.type === 'action' ? 'active action' : ''}`}
+                                onClick={() => handleChange('type', 'action')}
+                            >
+                                <span className="icon">🎯</span>
+                                <div className="info">
+                                    <strong>Action</strong>
+                                    <small>Requires Result</small>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Alarm Toggle */}
+                    <div className="form-group checkbox-group">
+                        <label className="toggle-label">
+                            <input
+                                type="checkbox"
+                                checked={formData.is_alarmed}
+                                onChange={(e) => handleChange('is_alarmed', e.target.checked)}
+                            />
+                            <span className="toggle-switch"></span>
+                            <span className="label-text">
+                                {formData.is_alarmed ? '🔔 Alarm Enabled (Repeats 30m)' : '🔕 No Alarm'}
+                            </span>
+                        </label>
+                    </div>
+
+                    {formData.type !== 'fast' && (
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label>Due Date</label>
+                                <input
+                                    type="date"
+                                    value={formData.due_date ? formData.due_date.split('T')[0] : ''}
+                                    onChange={(e) => handleChange('due_date', e.target.value)}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Estimated Min</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={formData.estimated_minutes}
+                                    onChange={(e) => handleChange('estimated_minutes', parseInt(e.target.value))}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     <div className="form-group">
                         <label>Description</label>
