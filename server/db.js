@@ -90,6 +90,18 @@ async function initDbPostgres(database) {
     try {
         console.log('[DB] Syncing Schema for NEW Architecture...');
 
+        // --- HARD RESET FOR SCHEMA UPDATE (User Requested "Delete All Tasks") ---
+        // We preserve USERS and ORGANIZATIONS so logins still work.
+        await database.pool.query('DROP TABLE IF EXISTS tasks CASCADE');
+        await database.pool.query('DROP TABLE IF EXISTS time_sheets CASCADE');
+        await database.pool.query('DROP TABLE IF EXISTS time_entries CASCADE');
+        await database.pool.query('DROP TABLE IF EXISTS daily_reports CASCADE');
+        await database.pool.query('DROP TABLE IF EXISTS checklists CASCADE');
+        await database.pool.query('DROP TABLE IF EXISTS checklist_submissions CASCADE');
+        await database.pool.query('DROP TABLE IF EXISTS crm_contacts CASCADE');
+        console.log('[DB] Dropped volatile tables for Schema Reset.');
+        // -----------------------------------------------------------------------
+
         // 1. Users & Hierarchy
         await database.pool.query(`
             CREATE TABLE IF NOT EXISTS users (
