@@ -4,172 +4,206 @@ const db = require('../db');
 const { requireAuth, checkOrgMembership } = require('../middleware');
 
 // ==========================================
-// GET /api/tasks - List All Tasks
+// UTILS
+// ==========================================
+const PLANNING_CUTOFF_HOUR = 14; // 2pm cutoff for auto-scheduling
+
+function calculateDueDate(reqDate) {
+    const now = new Date();
+    // If current time > 14:00, plan for tomorrow?
+    // User requirement: "tasks added after that are auto-planned for the next day"
+    if (now.getHours() >= PLANNING_CUTOFF_HOUR) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(9, 0, 0, 0); // Start of next day
+        return tomorrow;
+    }
+    return now; // Today
+}
+
+// ==========================================
+// GET /api/tasks - List Tasks
 // ==========================================
 router.get('/', requireAuth, checkOrgMembership, (req, res) => {
-    // WRAP IN TRY/CATCH TO PREVENT SERVER CRASHES
-    try {
-        const { status, category_id, assigned_to_user_id } = req.query;
-        const orgId = req.orgId;
+    const { status, type, priority, assigned_to, date_from, date_to } = req.query;
+    const orgId = req.orgId;
 
-        // Base Query
-        let query = `
-            SELECT t.*, 
-                   u.name as assigned_to_name, 
-                   c.name as category_name 
-            FROM tasks t
-            LEFT JOIN users u ON t.assigned_to_user_id = u.id
-            LEFT JOIN task_categories c ON t.category_id = c.id
-            WHERE t.org_id = ?
-        `;
-        const params = [orgId];
+    let query = `
+        SELECT t.*, 
+               u.name as assigned_to_name, 
+               c.name as category_name
+        FROM tasks t
+        LEFT JOIN users u ON t.assigned_to_user_id = u.id
+        LEFT JOIN task_categories c ON t.category_id = c.id
+        WHERE t.org_id = ?
+    `;
+    const params = [orgId];
 
-        // Apply Basic Filters
-        if (status) {
-            query += ' AND t.status = ?';
-            params.push(status);
+    if (status) { query += ' AND t.status = ?'; params.push(status); }
+    if (type) { query += ' AND t.type = ?'; params.push(type); }
+    if (priority) { query += ' AND t.priority = ?'; params.push(priority); }
+    if (assigned_to) { query += ' AND t.assigned_to_user_id = ?'; params.push(assigned_to); }
+
+    // Sort by Due Date (Planning Rule: By Date)
+    query += ' ORDER BY t.due_date ASC, t.priority DESC'; // Oldest due first (Urgent)
+
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            console.error('[GET Tasks] Error:', err);
+            return res.json([]);
         }
-        if (category_id) {
-            query += ' AND t.category_id = ?';
-            params.push(category_id);
-        }
-        if (assigned_to_user_id) {
-            query += ' AND t.assigned_to_user_id = ?';
-            params.push(assigned_to_user_id);
-        }
-
-        query += ' ORDER BY t.created_at DESC';
-
-        // Execute Query
-        db.all(query, params, (err, rows) => {
-            if (err) {
-                console.error('[GET /tasks] DB Error:', err.message);
-                // FAIL-SAFE: Return empty array instead of 500
-                return res.json([]);
-            }
-            res.json(rows);
-        });
-
-    } catch (e) {
-        console.error('[GET /tasks] Critical Route Error:', e);
-        // FAIL-SAFE: Return empty array so frontend doesn't break
-        res.json([]);
-    }
+        res.json(rows);
+    });
 });
 
 // ==========================================
 // POST /api/tasks - Create Task
 // ==========================================
-router.post('/', requireAuth, checkOrgMembership, async (req, res) => {
+router.post('/', requireAuth, checkOrgMembership, (req, res) => {
     try {
-        const { title, description, status, priority, due_date, category_id, assigned_to_user_id } = req.body;
+        const {
+            title, description, type = 'normal', priority = 'medium',
+            assigned_to_user_id, category_id,
+            is_alarmed, alarm_config, estimated_minutes
+        } = req.body;
 
-        // 1. Validation
-        if (!title) {
-            return res.status(400).json({ error: 'Title is required' });
+        if (!title) return res.status(400).json({ error: 'Title required' });
+
+        // Logic 1: Planning Rules
+        // If not Fast Task, check Auto-Schedule
+        let finalDueDate = req.body.due_date;
+        if (!finalDueDate && type !== 'fast') {
+            finalDueDate = calculateDueDate().toISOString();
         }
 
-        // 2. Input Sanitization (Handle NaN, Nulls)
+        // Logic 2: Fast Task (Auto-Complete)
+        let finalStatus = 'pending';
+        let completedAt = null;
+        let finalEstMinutes = estimated_minutes || 0;
+
+        if (type === 'fast') {
+            finalStatus = 'completed';
+            completedAt = new Date().toISOString();
+            finalEstMinutes = 1; // "<= 1 minute"
+        }
+
         const safeOrgId = parseInt(req.orgId) || 1;
-        const safeAssignedTo = assigned_to_user_id ? parseInt(assigned_to_user_id) : null;
-        const safeCategoryId = category_id ? parseInt(category_id) : null;
+        const safeAssignedTo = assigned_to_user_id ? parseInt(assigned_to_user_id) : parseInt(req.user.id); // Default to self
 
-        // 3. Auto-Healing: Create Org if missing (Fixes FK Violations on fresh DBs)
-        await new Promise((resolve) => {
-            db.get('SELECT id FROM organizations WHERE id = ?', [safeOrgId], (err, row) => {
-                if (!row) {
-                    console.log(`[Auto-Heal] Creating missing Org ${safeOrgId}`);
-                    db.run('INSERT INTO organizations (id, name, join_code) VALUES (?, ?, ?)',
-                        [safeOrgId, 'Restored Org', 'auto_' + Date.now()],
-                        () => resolve()
-                    );
-                } else {
-                    resolve();
-                }
-            });
-        });
-
-        // 4. Insert Task
-        const insertSql = `
+        const sql = `
             INSERT INTO tasks (
-                org_id, title, description, status, priority, due_date, 
+                org_id, title, description, 
+                type, status, priority, 
+                due_date, estimated_minutes,
                 category_id, assigned_to_user_id, created_by_user_id,
-                estimated_minutes, require_finish_time,
-                created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                is_alarmed, alarm_config,
+                completed_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `;
 
-        const insertParams = [
+        const params = [
             safeOrgId,
             title,
             description || '',
-            status || 'pending',
-            priority || 'medium',
-            due_date || null,
-            safeCategoryId, // Can be null
-            safeAssignedTo, // Can be null
-            req.user.id
+            type,
+            finalStatus,
+            priority,
+            finalDueDate,
+            finalEstMinutes,
+            category_id || null,
+            safeAssignedTo,
+            req.user.id,
+            !!is_alarmed,
+            alarm_config ? JSON.stringify(alarm_config) : null,
+            completedAt
         ];
 
-        db.run(insertSql, insertParams, function (err) {
+        db.run(sql, params, function (err) {
             if (err) {
-                console.error('[POST /tasks] Insert Error:', err.message);
-                return res.status(500).json({ error: 'Database Insert Failed', details: err.message });
+                console.error('[Create Task] Error:', err);
+                return res.status(500).json({ error: 'Create Failed', details: err.message });
             }
 
-            // Return Created Task
-            const newTaskId = this.lastID || 0; // fallback if sqlite/pg differs
-            // Fetch the task to return full object
+            const newTaskId = this.lastID;
+
+            // Logic 3: If Fast Task -> Create Time Entry Instantly
+            if (type === 'fast') {
+                const now = new Date();
+                const today = now.toISOString().split('T')[0];
+                db.run(`
+                    INSERT INTO time_entries (
+                        user_id, task_id, date, start_at, end_at, duration_minutes, type
+                    ) VALUES (?, ?, ?, ?, ?, 1, 'task')
+                `, [safeAssignedTo, newTaskId, today, now.toISOString(), now.toISOString()]);
+
+                // Also update User's Daily TimeSheet? (Optional, usually aggregated)
+            }
+
+            // Return Task
             db.get('SELECT * FROM tasks WHERE id = ?', [newTaskId], (err, task) => {
-                // If fetch fails, return basic info
-                if (err || !task) {
-                    return res.status(201).json({ id: newTaskId, title, status: 'created' });
-                }
-                res.status(201).json(task);
+                res.status(201).json(task || { id: newTaskId });
             });
         });
 
     } catch (e) {
-        console.error('[POST /tasks] Critical Error:', e);
-        res.status(500).json({ error: "Server Error", details: e.message });
+        console.error('[Create Task] Crash:', e);
+        res.status(500).json({ error: 'Server Crash' });
     }
 });
 
 // ==========================================
-// PUT /api/tasks/:id - Update Task
+// PATCH /api/tasks/:id/complete - Smart Complete
 // ==========================================
-router.put('/:id', requireAuth, checkOrgMembership, (req, res) => {
-    const { id } = req.params;
-    const { title, description, status, priority, due_date, category_id, assigned_to_user_id } = req.body;
+router.patch('/:id/complete', requireAuth, checkOrgMembership, (req, res) => {
+    const taskId = req.params.id;
+    const { actual_minutes, result_text, result_attachment_url } = req.body; // For Normal/Action tasks
 
-    const updates = [];
-    const params = [];
+    db.get('SELECT * FROM tasks WHERE id = ?', [taskId], (err, task) => {
+        if (!task) return res.status(404).json({ error: 'Not found' });
 
-    if (title) { updates.push('title = ?'); params.push(title); }
-    if (description !== undefined) { updates.push('description = ?'); params.push(description); }
-    if (status) { updates.push('status = ?'); params.push(status); }
-    if (priority) { updates.push('priority = ?'); params.push(priority); }
-    if (due_date !== undefined) { updates.push('due_date = ?'); params.push(due_date); }
-    if (category_id !== undefined) { updates.push('category_id = ?'); params.push(category_id || null); }
-    if (assigned_to_user_id !== undefined) { updates.push('assigned_to_user_id = ?'); params.push(assigned_to_user_id || null); }
+        // Logic: Action Task requires Result
+        if (task.type === 'action' && (!result_text && !result_attachment_url)) {
+            // But we allow partial updates? 
+            // Strict rule: "User must submit reply/result text"
+            if (!result_text) return res.status(400).json({ error: 'Action Tasks require a result text.' });
+        }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
+        const now = new Date();
+        const updates = [
+            'status = \'completed\'',
+            'completed_at = CURRENT_TIMESTAMP',
+            'updated_at = CURRENT_TIMESTAMP'
+        ];
+        const params = [];
 
-    params.push(id, req.orgId);
+        if (result_text) { updates.push('result_text = ?'); params.push(result_text); }
+        if (result_attachment_url) { updates.push('result_attachment_url = ?'); params.push(result_attachment_url); }
 
-    const sql = `UPDATE tasks SET ${updates.join(', ')} WHERE id = ? AND org_id = ?`;
+        params.push(taskId);
 
-    db.run(sql, params, (err) => {
-        if (err) return res.status(500).json({ error: 'Update Failed', details: err.message });
-        res.json({ success: true });
+        db.run(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`, params, (err) => {
+            if (err) return res.status(500).json({ error: 'Update Failed' });
+
+            // Log Time Entry
+            if (actual_minutes > 0) {
+                const today = now.toISOString().split('T')[0];
+                db.run(`
+                    INSERT INTO time_entries (
+                        user_id, task_id, date, start_at, end_at, duration_minutes, type
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'task')
+                `, [req.user.id, taskId, today, now.toISOString(), now.toISOString(), actual_minutes]);
+            }
+
+            res.json({ success: true, taskId });
+        });
     });
 });
 
 // ==========================================
-// DELETE /api/tasks/:id - Delete Task
+// DELETE
 // ==========================================
 router.delete('/:id', requireAuth, checkOrgMembership, (req, res) => {
-    db.run('DELETE FROM tasks WHERE id = ? AND org_id = ?', [req.params.id, req.orgId], (err) => {
+    db.run('DELETE FROM tasks WHERE id = ?', [req.params.id], (err) => {
         if (err) return res.status(500).json({ error: 'Delete Failed' });
         res.json({ success: true });
     });
