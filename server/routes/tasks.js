@@ -6,9 +6,10 @@ const { requireAuth, checkOrgMembership } = require('../middleware');
 
 // Get tasks with filters
 router.get('/', requireAuth, checkOrgMembership, (req, res) => {
-    const { status, priority, category_id, assigned_to, date_from, date_to } = req.query;
+    try {
+        const { status, priority, category_id, assigned_to, date_from, date_to } = req.query;
 
-    let query = `
+        let query = `
         SELECT t.*, 
                u_assigned.name as assigned_to_name,
                u_assigned.email as assigned_to_email,
@@ -21,61 +22,65 @@ router.get('/', requireAuth, checkOrgMembership, (req, res) => {
         WHERE t.org_id = ?
     `;
 
-    const params = [req.orgId];
+        const params = [req.orgId];
 
-    // Filter by what user can see based on role
-    if (req.userRole === 'employee') {
-        query += ' AND t.assigned_to_user_id = ?';
-        params.push(req.user.id);
-    } else if (req.userRole === 'leader') {
-        // Leader can see their own tasks + tasks of members in their scope
-        query += ` AND (t.assigned_to_user_id = ? OR t.assigned_to_user_id IN (
+        // Filter by what user can see based on role
+        if (req.userRole === 'employee') {
+            query += ' AND t.assigned_to_user_id = ?';
+            params.push(req.user.id);
+        } else if (req.userRole === 'leader') {
+            // Leader can see their own tasks + tasks of members in their scope
+            query += ` AND (t.assigned_to_user_id = ? OR t.assigned_to_user_id IN (
             SELECT member_user_id FROM leader_scope WHERE leader_user_id = ? AND org_id = ?
         ))`;
-        params.push(req.user.id, req.user.id, req.orgId);
-    }
-    // Admin and Owner can see all tasks
-
-    // Apply filters
-    if (status) {
-        query += ' AND t.status = ?';
-        params.push(status);
-    }
-
-    if (priority) {
-        query += ' AND t.priority = ?';
-        params.push(priority);
-    }
-
-    if (category_id) {
-        query += ' AND t.category_id = ?';
-        params.push(category_id);
-    }
-
-    if (assigned_to) {
-        query += ' AND t.assigned_to_user_id = ?';
-        params.push(assigned_to);
-    }
-
-    if (date_from) {
-        query += ' AND t.due_date >= ?';
-        params.push(date_from);
-    }
-
-    if (date_to) {
-        query += ' AND t.due_date <= ?';
-        params.push(date_to);
-    }
-
-    query += ' ORDER BY t.created_at DESC';
-    db.all(query, params, (err, rows) => {
-        if (err) {
-            console.error('Error fetching tasks (Returning Empty):', err);
-            // Return empty array to allow UI to load
-            return res.json([]);
+            params.push(req.user.id, req.user.id, req.orgId);
         }
-        res.json(rows);
-    });
+        // Admin and Owner can see all tasks
+
+        // Apply filters
+        if (status) {
+            query += ' AND t.status = ?';
+            params.push(status);
+        }
+
+        if (priority) {
+            query += ' AND t.priority = ?';
+            params.push(priority);
+        }
+
+        if (category_id) {
+            query += ' AND t.category_id = ?';
+            params.push(category_id);
+        }
+
+        if (assigned_to) {
+            query += ' AND t.assigned_to_user_id = ?';
+            params.push(assigned_to);
+        }
+
+        if (date_from) {
+            query += ' AND t.due_date >= ?';
+            params.push(date_from);
+        }
+
+        if (date_to) {
+            query += ' AND t.due_date <= ?';
+            params.push(date_to);
+        }
+
+        query += ' ORDER BY t.created_at DESC';
+        db.all(query, params, (err, rows) => {
+            if (err) {
+                console.error('Error fetching tasks (Returning Empty):', err);
+                // Return empty array to allow UI to load
+                return res.json([]);
+            }
+            res.json(rows);
+        });
+    } catch (e) {
+        console.error("GET /tasks CRASHED:", e);
+        res.status(500).json({ error: "Server Crash", details: e.message });
+    }
 });
 
 // Get single task
