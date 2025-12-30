@@ -41,7 +41,8 @@ passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
 // Routes
-app.use('/auth', authRoutes);
+app.use('/auth', authRoutes);      // For callbacks (if needed)
+app.use('/api/auth', authRoutes);  // For frontend requests
 app.use('/api/tasks', taskRoutes);
 app.use('/api/orgs', orgRoutes);
 
