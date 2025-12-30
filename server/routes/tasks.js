@@ -6,11 +6,6 @@ const { requireAuth, checkOrgMembership } = require('../middleware');
 
 // Get tasks with filters
 router.get('/', requireAuth, checkOrgMembership, (req, res) => {
-    // --- DEBUG FORCE SUCCESS ---
-    console.log("DEBUG: Returning empty tasks list to verify route reachability.");
-    return res.json([]);
-    // --- END DEBUG ---
-
     const { status, priority, category_id, assigned_to, date_from, date_to } = req.query;
 
     let query = `
